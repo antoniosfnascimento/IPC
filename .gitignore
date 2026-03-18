@@ -1,0 +1,7 @@
+venv/
+.venv/
+node_modules/
+__pycache__/
+.vite/
+data/osm_cache/
+.DS_Store
