@@ -1,0 +1,19 @@
+# Arquitetura de Informação (CityFlow MVP)
+
+Este documento dita a estrutura hierárquica e a organização dos conteúdos do **CityFlow** (Frontend). A tabela de Arquitetura de Informação serve como fundação (Blueprint) de onde os programadores web partirão para construir as vistas (React Components) e o encaminhamento da aplicação (React Router DOM).
+
+Para manter o foco no MVP e na usabilidade (carga cognitiva reduzida), a aplicação dita uma arquitetura de ecrã único (*Single-Page Application* agressiva) com gavetas móveis modais (Drawer/Modals) em vez de sucessivas páginas fechadas, garantindo que o mapa nunca sai da vista periférica do utilizador.
+
+| Nome Lógico (Ecrã / Componente Base) | O que mostra / Componentes Visuais de Interface da Página | Ações do Utilizador (`onClick`, `onSubmit`) | Navegação (Para onde o utilizador transita) |
+| :--- | :--- | :--- | :--- |
+| **`MapView` (Ecrã Pai/Home)** | O componente Leaflet/Mapa (Ocupa 100% da viewport `h-screen w-screen`). Mostra basemaps claros/escuros dependendo do Perfil. | Pan livre, `zoom-in`, `zoom-out` no mapa. | Mantém o utilizador neste ecrã o tempo todo. Despoleta os ecrãs sobrepostos (Childs) listados abaixo. |
+| **`Floating UI Layer`** (Z-index superior ao Mapa) | Botão "GPS Centrar Loc.", Botão Toggler "Modo Escuro / Alto Contraste", Ícone Círculo de Perfil no topo. | Ligar/Desligar Contraste Dinâmico; Centrar localização. Clique na Foto/Ícone de Perfil. | Expandir Modais de Perfil ou chamar APIs sem sair da página. Clique na Foto/Ícone de Perfil transita (Abre Modal/Drawer) para a view **`ProfileSettingsModal`**. |
+| **`RoutePlannerPanel`** (Rodapé Flutuante Flexível) | Bottom Sheet (Gaveta vinda do fundo). Input Text "Origem", Input Text "Destino". Botão `[ Calcular Rota ]` (44x44px min). | Preencher Textos; Acionar Botão "Calcular". `onClick` num ponto arbitrário no vazio do mapa injeta a `String` morada na caixa de destino. | Ao carregar em calcular, a UI mantém-se, invoca o Backend, liga o `LoadingSpinner` (WCAG aria-live) e transita o UI State para **`ActiveNavigationOverlay`**. |
+| **`ProfileSettingsModal`** (Janela Modal Focada) | Botões de Rádio (Seleção Única): "Cadeira Rodas", "Visão Reduzida", "Idoso". E *Sliders* para as *Hard Constraints*: "Largura da via" (0.5m a 2m), "Inclinação máxima". | Escolher as variáveis da Heurística de Penalização de Dijkstra e pressionar Botão `[ Guardar Perfil ]`. | Exibe Toast "Perfil Aplicado". Encerra `Modal` sozinho. O foco e a visão do utilizador regressam imediatamente ao **`MapView`** e ao mapa estático livre. |
+| **`ActiveNavigationOverlay`** (Modo em Viagem / Easy Read) | Esconde todos os campos de texto. Limita a carga visual a: Barra Superior muito larga com Direção Textual (Ex: "Vire em 50m") e Botão Quadrado com a Seta de Manobra. Aparece o Botão Vermelho Base: `[ REPORTAR OBSTÁCULO ]`. | Ler indicação. Seguir a linha grossa traçada no mapa. Ação SOS no `Reportar`. | Chegar ao destino transita a view de volta para a **`RoutePlannerPanel`** original (vazia). Botão Reportar despoleta Toast "Recalculando Rota Alternativa" via API Crowdsourcing. |
+| **`ErrorFeedbackToast`** (Sistema Transversal) | Pequeno balão informativo de cor avisar falhas (Amarelo ou Vermelho dependendo da WCAG). Exprime falhas do Servidor Pydantic com naturalidade. Ex: "Aviso: Sem Rota neste Perfil (424)". | Fechar `onClick` de Descartar Mensagem ('X'). | Não transita. Oculta-se automaticamente (Autodismiss `3000ms`). |
+
+### Notas para o Frontend (React.js)
+Tendo em vista o escopo mobile (*PWA* e Acessibilidade), os programadores jamais devem usar links `<a href="/definicoes">` convencionais entre estações. O ecrã físico no telefone não deve piscar e limpar o ecrã numa navegação dura. 
+
+O `MapView` é a Root Permanente (`/`), e todos os painéis deslizam suavemente num plano "vertical" (*Z-axis*) originando do fundo do telemóvel para perto dos polegares (Thumb-zone Design).
