@@ -1,0 +1,48 @@
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from models import RouteRequest
+from engine.router import CityFlowRouter
+
+app = FastAPI(title="CityFlow Inclusivo API", version="1.1")
+
+# Configurar o CORS para permitir todas as origens no MVP
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Instanciar o motor do CityFlowRouter globalmente para aproveitar a cache em memória 
+# e manter inicialização configurada para './data/osm_cache'
+city_router = CityFlowRouter(center_coords=(41.296, -7.746), radius=1500)
+
+
+@app.get("/")
+def health_check():
+    return {"status": "CityFlow API Online"}
+
+
+@app.post("/api/v1/route")
+def calculate_route(request: RouteRequest):
+    # O router tratará de carregar o grafo (self.load_graph()) na primeira execução automática
+    result = city_router.get_route(request)
+    
+    if isinstance(result, tuple) and len(result) == 3:
+        route_coords, distance, max_route_incline = result
+    else:
+        route_coords, distance, max_route_incline = result, 0.0, 0.0
+    
+    if not route_coords:
+        raise HTTPException(
+            status_code=424, 
+            detail="Não foi possível encontrar uma rota segura com as restrições atuais."
+        )
+        
+    return {
+        "status": "success",
+        "route_geometry": route_coords,
+        "distance_meters": distance,
+        "max_route_incline": max_route_incline
+    }
