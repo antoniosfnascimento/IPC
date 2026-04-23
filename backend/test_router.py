@@ -5,7 +5,7 @@ import sys
 def run_test():
     print("--- Testing Routing Engine (CityFlowRouter) ---")
     
-    # 1. Criar perfil
+    
     profile = UserProfile(
         profile_name="wheelchair",
         max_incline=0.08,
@@ -14,18 +14,18 @@ def run_test():
         surface_preference=["paved", "asphalt", "concrete"]
     )
     
-    # 2. Request
-    # Coordenadas em Vila Real
+    
+    
     request = RouteRequest(
         start_coords=(41.2954, -7.7451),
         end_coords=(41.2982, -7.7420),
         profile=profile
     )
     
-    # 3. Setup do engine
+    
     router = CityFlowRouter(center_coords=(41.296, -7.746), radius=1500)
     
-    # 4. Calcular Caminho
+    
     print("A iniciar o cálculo da rota. Isto vai requerer o download dos dados OSM caso a cache esteja vazia...")
     route_coords = router.get_route(request)
     

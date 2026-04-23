@@ -8,9 +8,9 @@ def run_stress_test():
     print(" INICIANDO STRESS TEST API: CITYFLOW INCLUSIVO")
     print("==================================================\n")
     
-    # ---------------------------------------------------------
-    # CENÁRIO A: Rota Inclusiva Standard
-    # ---------------------------------------------------------
+    
+    
+    
     print("=> Cenário A (Inclusividade: wheelchair, max_incline: 0.08)")
     payload_a = {
         "start_coords": [41.2954, -7.7451],
@@ -31,9 +31,9 @@ def run_stress_test():
     else:
         print(f"   [FAIL] Esperado 200, obtido {response_a.status_code}")
         
-    # ---------------------------------------------------------
-    # CENÁRIO B: Defesa 0.5m
-    # ---------------------------------------------------------
+    
+    
+    
     print("\n=> Cenário B (Defesa 0.5m: min_width = 1.5)")
     payload_b = {
         "start_coords": [41.2954, -7.7451],
@@ -54,15 +54,15 @@ def run_stress_test():
     else:
         print(f"   [FAIL] Esperado 200, obtido {response_b.status_code}")
 
-    # ---------------------------------------------------------
-    # CENÁRIO C: Status 424 via restrições impossíveis ou pontos isolados
-    # ---------------------------------------------------------
+    
+    
+    
     print("\n=> Cenário C (Teste de Erro / 424 Failed Dependency)")
-    # Forçar a procura de rota entre pontos num grafo que não têm ligação,
-    # ou usando coordenadas distantes que vão fazer snap a componentes disjuntos na periferia.
+    
+    
     payload_c = {
         "start_coords": [41.296, -7.746],
-        "end_coords": [-10.0, -10.0],  # Força snap para os limites distantes do grafo
+        "end_coords": [-10.0, -10.0],  
         "profile": {
             "profile_name": "wheelchair",
             "max_incline": 0.08,

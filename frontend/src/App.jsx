@@ -1,15 +1,16 @@
 import { useState } from 'react';
-import { Map as MapIcon, AlertCircle, Loader2, Navigation, Goal, Route as RouteIcon, ShieldCheck, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Map as MapIcon, AlertCircle, Loader2, Navigation, Goal, Route as RouteIcon, ShieldCheck, AlertTriangle, CheckCircle, Menu, X } from 'lucide-react';
+
 import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Polyline, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 
-// Constante Estruturante do Sistema
-const MAP_COVERAGE_RADIUS = 2000; // metros
+
+const MAP_COVERAGE_RADIUS = 2000; 
 const CENTER_COORDS = [41.296, -7.746];
 const CENTER_LATLNG = L.latLng(CENTER_COORDS[0], CENTER_COORDS[1]);
 
-// Bounds rígidos baseados no raio de ~2km (+ margin) 1 grau lat ~ 111km
+
 const marginLat = MAP_COVERAGE_RADIUS / 111000;
 const marginLng = MAP_COVERAGE_RADIUS / (111000 * Math.cos(CENTER_COORDS[0] * Math.PI / 180));
 const MAX_BOUNDS = [
@@ -17,7 +18,7 @@ const MAX_BOUNDS = [
   [CENTER_COORDS[0] + marginLat, CENTER_COORDS[1] + marginLng]
 ];
 
-// Ícones Customizados
+
 const startIconHtml = `<div class="bg-blue-600 text-white rounded-full p-2 w-9 h-9 flex items-center justify-center shadow-lg border-2 border-white">
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
 </div>`;
@@ -32,7 +33,7 @@ const endMarkerIcon = new L.divIcon({ html: endIconHtml, className: "custom-mark
 function InteractiveMap({ startCoords, setStartCoords, endCoords, setEndCoords, setRouteGeometry, setError }) {
   useMapEvents({
     click(e) {
-      // 1. Validar se o utilizador não carregou na "borda invisível" do motor para evitar timeouts/falhas forçadas
+      
       const dist = CENTER_LATLNG.distanceTo(e.latlng);
       if (dist >= MAP_COVERAGE_RADIUS * 0.95) {
         setError('O ponto que clicaste encontra-se fora da zona de cobertura atual do CityFlow.');
@@ -41,17 +42,17 @@ function InteractiveMap({ startCoords, setStartCoords, endCoords, setEndCoords, 
 
       setError(null);
 
-      // 3º Clique: Reset
+      
       if (startCoords && endCoords) {
         setStartCoords(null);
         setEndCoords(null);
         setRouteGeometry([]);
       }
-      // 1º Clique: Origem
+      
       else if (!startCoords) {
         setStartCoords([e.latlng.lat, e.latlng.lng]);
       }
-      // 2º Clique: Destino
+      
       else if (!endCoords) {
         setEndCoords([e.latlng.lat, e.latlng.lng]);
       }
@@ -62,21 +63,22 @@ function InteractiveMap({ startCoords, setStartCoords, endCoords, setEndCoords, 
 }
 
 export default function App() {
-  // Coordenadas
+  
   const [startCoords, setStartCoords] = useState(null);
   const [endCoords, setEndCoords] = useState(null);
-  // Data de Rota
+  
   const [routeGeometry, setRouteGeometry] = useState([]);
   const [routeDistance, setRouteDistance] = useState(0);
   const [maxRouteIncline, setMaxRouteIncline] = useState(0);
   
-  // Custom Profile Settings
-  const [maxIncline, setMaxIncline] = useState(8); // 8% Default
-  const [minWidth, setMinWidth] = useState(1.2); // 1.2m Default
-  const [avoidStairs, setAvoidStairs] = useState(true); // Default true
+  
+  const [maxIncline, setMaxIncline] = useState(8); 
+  const [minWidth, setMinWidth] = useState(1.2); 
+  const [avoidStairs, setAvoidStairs] = useState(true); 
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleCalculateRoute = async () => {
     if (!startCoords || !endCoords) {
@@ -125,12 +127,34 @@ export default function App() {
   return (
     <div className="w-screen h-screen flex overflow-hidden bg-slate-50 font-sans text-slate-800">
       
-      {/* Sidebar - Controlos (30%) */}
-      <aside className="w-full md:w-[35%] lg:w-[30%] min-w-[320px] max-w-[450px] h-full bg-white border-r border-slate-200 shadow-xl z-50 flex flex-col shrink-0">
+      {}
+      <button 
+        className="md:hidden fixed z-[60] bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-2xl transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 font-bold"
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        aria-label="Toggle menu"
+      >
+        {isSidebarOpen ? <X size={24} /> : (
+          <>
+            <Menu size={24} />
+            <span className="hidden sm:inline">Definições</span>
+          </>
+        )}
+      </button>
+
+      {}
+      {isSidebarOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[40] animate-in fade-in transition-opacity" 
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {}
+      <aside className={`fixed md:relative top-0 left-0 h-full bg-white border-r border-slate-200 shadow-2xl md:shadow-xl z-50 flex flex-col shrink-0 w-[90%] max-w-[400px] md:w-[35%] lg:w-[30%] md:min-w-[320px] md:max-w-[450px] transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         
         <div className="flex-1 overflow-y-auto p-6 md:p-8 flex flex-col gap-8">
           
-          {/* Header */}
+          {}
           <div className="flex items-center gap-4">
             <div className="bg-blue-100 p-3 rounded-2xl shrink-0 text-blue-600">
               <MapIcon size={32} />
@@ -147,7 +171,7 @@ export default function App() {
 
           <div className="border-t border-slate-100" />
 
-          {/* Painel Descritivo */}
+          {}
           <div className="flex flex-col gap-2">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <RouteIcon className="text-slate-400" size={20} /> O Seu Trajeto
@@ -168,7 +192,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* O Teu Perfil de Acessibilidade */}
+          {}
           <div className="flex flex-col gap-5">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <ShieldCheck className="text-slate-400" size={20} /> O Teu Perfil de Acessibilidade
@@ -176,7 +200,7 @@ export default function App() {
             
             <div className="flex flex-col gap-6 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
               
-              {/* Máxima Inclinação */}
+              {}
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-center">
                   <label htmlFor="incline-slider" className="font-semibold text-slate-700 text-sm">Máxima Inclinação</label>
@@ -191,7 +215,7 @@ export default function App() {
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
                 
-                {/* Labels Dinâmicas de Inclinação */}
+                {}
                 <div className="flex justify-between text-xs font-semibold mt-1">
                    <span className={maxIncline <= 5 ? "text-emerald-600 font-bold" : "text-slate-400"}>
                      {maxIncline <= 5 ? "Suave / Muito Acessível" : ""}
@@ -205,7 +229,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Mínima Largura */}
+              {}
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-center">
                   <label htmlFor="width-slider" className="font-semibold text-slate-700 text-sm">Largura da Via (mín)</label>
@@ -223,7 +247,7 @@ export default function App() {
 
               <div className="border-t border-slate-100" />
 
-              {/* Evitar Escadas Toggle */}
+              {}
               <label className="flex items-center justify-between cursor-pointer group">
                 <span className="font-semibold text-slate-700 text-sm group-hover:text-blue-700 transition-colors">Evitar Escadas Subtis</span>
                 <div className="relative">
@@ -246,7 +270,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Feedback Unitário (Catch) */}
+          {}
           {error && (
             <div role="alert" className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 flex flex-col gap-2 animate-in fade-in">
                <div className="flex items-center gap-2 font-bold text-sm">
@@ -259,7 +283,7 @@ export default function App() {
 
         </div>
 
-         {/* Call To Action Block e Métricas Vasuais */}
+         {}
          <div className="p-6 border-t border-slate-200 bg-slate-50 flex flex-col gap-4">
            <button
              type="button"
@@ -274,7 +298,7 @@ export default function App() {
              )}
            </button>
            
-           {/* Resumo do Trajeto (Painel de Métricas) */}
+           {}
            {routeDistance > 0 && !error && (
               <div className="flex flex-col gap-3 animate-in slide-in-from-bottom-2">
                 <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-around items-center">
@@ -298,7 +322,7 @@ export default function App() {
                    </div>
                 </div>
 
-                {/* Avaliação de Risco */}
+                {}
                 {(maxRouteIncline * 100) > maxIncline ? (
                   <div className="flex items-center justify-center gap-2 text-red-700 bg-red-50 p-3 rounded-xl border border-red-200 text-sm font-bold animate-in zoom-in-95">
                      <AlertTriangle className="w-5 h-5 shrink-0" />
@@ -320,7 +344,7 @@ export default function App() {
 
       </aside>
 
-      {/* Map Area (70%) */}
+      {}
       <main className="flex-1 w-full relative z-0">
         <MapContainer 
           center={CENTER_COORDS} 
@@ -329,7 +353,7 @@ export default function App() {
           maxBounds={MAX_BOUNDS}
           maxBoundsViscosity={1.0}
           minZoom={14}
-          zoomControl={false} // Remover default zoom para meter de lado, opcional
+          zoomControl={false} 
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

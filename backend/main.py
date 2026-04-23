@@ -5,7 +5,7 @@ from engine.router import CityFlowRouter
 
 app = FastAPI(title="CityFlow Inclusivo API", version="1.1")
 
-# Configurar o CORS para permitir todas as origens no MVP
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,8 +14,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Instanciar o motor do CityFlowRouter globalmente para aproveitar a cache em memória 
-# e manter inicialização configurada para './data/osm_cache'
+
+
 city_router = CityFlowRouter(center_coords=(41.296, -7.746), radius=1500)
 
 
@@ -26,7 +26,7 @@ def health_check():
 
 @app.post("/api/v1/route")
 def calculate_route(request: RouteRequest):
-    # O router tratará de carregar o grafo (self.load_graph()) na primeira execução automática
+    
     result = city_router.get_route(request)
     
     if isinstance(result, tuple) and len(result) == 3:

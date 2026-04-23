@@ -2,7 +2,7 @@ import re
 import logging
 from typing import Optional
 
-# Ensure logging is configured to stdout so warnings are visible in console
+
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:\t  %(message)s')
 
 class FeatureSanitizer:
@@ -26,10 +26,10 @@ class FeatureSanitizer:
             except (ValueError, TypeError):
                 return default
                 
-        # Normalize commas to dots as decimal separators
+        
         value = value.replace(',', '.')
         
-        # Matches e.g. "-1", "1.5", ".5"
+        
         match = re.search(r'-?\d*\.?\d+', value)
         if match:
             try:

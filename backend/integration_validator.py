@@ -12,7 +12,7 @@ def test_api():
     start_point = [41.2954, -7.7451]
     end_point = [41.2982, -7.7420]
     
-    # 10 test cases varying the sliders and constraints
+    
     test_cases = [
         {"name": "Caso 1: Extrema Sensibilidade (2% / Escadas OFF)", "inc": 0.02, "width": 1.0, "stairs": True},
         {"name": "Caso 2: Defesa de Espaço Extrema (Largura 2.0m)", "inc": 0.15, "width": 2.0, "stairs": True},
@@ -23,7 +23,7 @@ def test_api():
         {"name": "Caso 7: Ultra Restritivo (1% / 2.5m / Escadas OFF)", "inc": 0.01, "width": 2.5, "stairs": True},
         {"name": "Caso 8: Flexível Total (15% / 0.5m / Escadas ON)", "inc": 0.15, "width": 0.5, "stairs": False},
         {"name": "Caso 9: Rota Longa Vila Real (8% / 1.0m / Escadas OFF)", "inc": 0.08, "width": 1.0, "stairs": True, "end": [41.3000, -7.7400]},
-        {"name": "Caso 10: Rota Quebrada / Rio (5% / 1.5m / Escadas OFF)", "inc": 0.05, "width": 1.5, "stairs": True, "end": [41.297, -7.735]} # Atravessa zonas dificeis
+        {"name": "Caso 10: Rota Quebrada / Rio (5% / 1.5m / Escadas OFF)", "inc": 0.05, "width": 1.5, "stairs": True, "end": [41.297, -7.735]} 
     ]
     
     results = []
