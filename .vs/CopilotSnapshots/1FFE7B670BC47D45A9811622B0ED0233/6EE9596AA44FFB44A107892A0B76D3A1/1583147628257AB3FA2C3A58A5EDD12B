@@ -1,4 +1,4 @@
-# Adicionar node ao PATH da sessão atual se necessário, para que a execução do script não falhe
+﻿# Adicionar node ao PATH da sessão atual se necessário, para que a execução do script não falhe
 $nodePath = "C:\Program Files\nodejs"
 if (Test-Path $nodePath) {
     if ($env:PATH -notmatch [regex]::Escape($nodePath)) {
@@ -19,32 +19,25 @@ if (-not (Get-Command $npmCmd -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-Push-Location backend
+Set-Location backend
 
 if (-not (Test-Path "venv")) {
-    Write-Host "A criar ambiente virtual e a instalar dependências no backend..."
     python -m venv venv
 }
 
 $pythonExe = ".\venv\Scripts\python.exe"
 
-& $pythonExe -m pip install --upgrade pip | Out-Null
-& $pythonExe -m pip install -r requirements.txt | Out-Null
+& $pythonExe -m pip install --upgrade pip
+& $pythonExe -m pip install -r requirements.txt
 
-Write-Host "A iniciar backend na porta 8000..."
-# Janela visível para não deixar processos escondidos que bloqueiem a porta 8000 depois
-Start-Process $pythonExe -ArgumentList "-m uvicorn main:app --reload --port 8000"
+Start-Process $pythonExe -ArgumentList "-m uvicorn main:app --reload --port 8000" -WindowStyle Hidden
 
-Pop-Location
+Set-Location ..
 
-Push-Location frontend
+Set-Location frontend
 
 if (-not (Test-Path "node_modules")) {
-    Write-Host "A instalar dependências do frontend..."
     & $npmCmd install
 }
 
-Write-Host "A iniciar frontend..."
 & $npmCmd run dev
-
-Pop-Location
