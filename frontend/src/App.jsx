@@ -6,7 +6,7 @@ import { MapContainer, TileLayer, Marker, Polyline, useMapEvents } from 'react-l
 import L from 'leaflet';
 
 
-const MAP_COVERAGE_RADIUS = 2000; 
+const MAP_COVERAGE_RADIUS = 5000; 
 const CENTER_COORDS = [41.296, -7.746];
 const CENTER_LATLNG = L.latLng(CENTER_COORDS[0], CENTER_COORDS[1]);
 
@@ -30,10 +30,9 @@ const endIconHtml = `<div class="bg-red-600 text-white rounded-full p-2 w-9 h-9 
 const startMarkerIcon = new L.divIcon({ html: startIconHtml, className: "custom-marker", iconSize: [36, 36], iconAnchor: [18, 36] });
 const endMarkerIcon = new L.divIcon({ html: endIconHtml, className: "custom-marker", iconSize: [36, 36], iconAnchor: [18, 36] });
 
-function InteractiveMap({ startCoords, setStartCoords, endCoords, setEndCoords, setRouteGeometry, setError }) {
+function InteractiveMap({ startCoords, setStartCoords, endCoords, setEndCoords, setRouteGeometry, setError, setIsSnapping }) {
   useMapEvents({
-    click(e) {
-      
+    async click(e) {
       const dist = CENTER_LATLNG.distanceTo(e.latlng);
       if (dist >= MAP_COVERAGE_RADIUS * 0.95) {
         setError('O ponto que clicaste encontra-se fora da zona de cobertura atual do CityFlow.');
@@ -42,19 +41,37 @@ function InteractiveMap({ startCoords, setStartCoords, endCoords, setEndCoords, 
 
       setError(null);
 
-      
+      // 3o clique limpa tudo
       if (startCoords && endCoords) {
         setStartCoords(null);
         setEndCoords(null);
         setRouteGeometry([]);
+        return;
       }
-      
-      else if (!startCoords) {
-        setStartCoords([e.latlng.lat, e.latlng.lng]);
-      }
-      
-      else if (!endCoords) {
-        setEndCoords([e.latlng.lat, e.latlng.lng]);
+
+      // Validar e fazer snap do ponto para a estrada valida mais proxima
+      setIsSnapping(true);
+      try {
+        const response = await axios.post('http://localhost:8000/api/v1/snap-point', {
+          coords: [e.latlng.lat, e.latlng.lng]
+        });
+
+        if (response.data && response.data.snapped_coords) {
+          const snapped = response.data.snapped_coords;
+          if (!startCoords) {
+            setStartCoords(snapped);
+          } else if (!endCoords) {
+            setEndCoords(snapped);
+          }
+        }
+      } catch (err) {
+        if (err.response && err.response.status === 422) {
+          setError(err.response.data.detail || 'Ponto invalido. Clique mais perto de uma rua acessivel.');
+        } else {
+          setError('Erro ao validar o ponto no servidor.');
+        }
+      } finally {
+        setIsSnapping(false);
       }
     }
   });
@@ -77,6 +94,7 @@ export default function App() {
   const [avoidStairs, setAvoidStairs] = useState(true); 
   
   const [isLoading, setIsLoading] = useState(false);
+  const [isSnapping, setIsSnapping] = useState(false);
   const [error, setError] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -346,6 +364,12 @@ export default function App() {
 
       {}
       <main className="flex-1 w-full relative z-0">
+        {isSnapping && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-lg flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <Loader2 className="animate-spin w-4 h-4" />
+            A validar ponto...
+          </div>
+        )}
         <MapContainer 
           center={CENTER_COORDS} 
           zoom={15} 
@@ -360,11 +384,12 @@ export default function App() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           
-          <InteractiveMap 
+          <InteractiveMap
              startCoords={startCoords} setStartCoords={setStartCoords}
              endCoords={endCoords} setEndCoords={setEndCoords}
              setRouteGeometry={setRouteGeometry}
              setError={setError}
+             setIsSnapping={setIsSnapping}
           />
 
           {startCoords && <Marker position={startCoords} icon={startMarkerIcon} />}

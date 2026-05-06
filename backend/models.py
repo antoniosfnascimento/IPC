@@ -12,3 +12,6 @@ class RouteRequest(BaseModel):
     start_coords: Tuple[float, float]
     end_coords: Tuple[float, float]
     profile: UserProfile
+
+class SnapPointRequest(BaseModel):
+    coords: Tuple[float, float]  # (lat, lng)
