@@ -131,11 +131,12 @@ export default function App() {
       <button 
         className="md:hidden fixed z-[60] bottom-6 right-6 bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-2xl transition-transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 font-bold"
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        aria-label="Toggle menu"
+        aria-label={isSidebarOpen ? "Fechar menu de definições" : "Abrir menu de definições"}
+        aria-expanded={isSidebarOpen}
       >
-        {isSidebarOpen ? <X size={24} /> : (
+        {isSidebarOpen ? <X size={24} aria-hidden="true" /> : (
           <>
-            <Menu size={24} />
+            <Menu size={24} aria-hidden="true" />
             <span className="hidden sm:inline">Definições</span>
           </>
         )}
@@ -157,7 +158,7 @@ export default function App() {
           {}
           <div className="flex items-center gap-4">
             <div className="bg-blue-100 p-3 rounded-2xl shrink-0 text-blue-600">
-              <MapIcon size={32} />
+              <MapIcon size={32} aria-hidden="true" />
             </div>
             <div className="flex flex-col">
               <h1 className="text-3xl font-black text-slate-800 tracking-tight leading-none mb-1">
@@ -174,17 +175,17 @@ export default function App() {
           {}
           <div className="flex flex-col gap-2">
             <h2 className="text-lg font-bold flex items-center gap-2">
-              <RouteIcon className="text-slate-400" size={20} /> O Seu Trajeto
+              <RouteIcon className="text-slate-400" size={20} aria-hidden="true" /> O Seu Trajeto
             </h2>
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm space-y-3">
                <div className="flex items-center gap-3">
-                  <Navigation className={`w-5 h-5 shrink-0 ${startCoords ? 'text-blue-600' : 'text-slate-300'}`} />
+                  <Navigation className={`w-5 h-5 shrink-0 ${startCoords ? 'text-blue-600' : 'text-slate-300'}`} aria-hidden="true" />
                   <span className={startCoords ? 'font-semibold text-slate-700' : 'text-slate-400 italic'}>
                     {startCoords ? `Origem definida` : 'Clique no mapa p/ Origem'}
                   </span>
                </div>
                <div className="flex items-center gap-3">
-                  <Goal className={`w-5 h-5 shrink-0 ${endCoords ? 'text-red-500' : 'text-slate-300'}`} />
+                  <Goal className={`w-5 h-5 shrink-0 ${endCoords ? 'text-red-500' : 'text-slate-300'}`} aria-hidden="true" />
                   <span className={endCoords ? 'font-semibold text-slate-700' : 'text-slate-400 italic'}>
                     {endCoords ? `Destino definido` : 'Clique no mapa p/ Destino'}
                   </span>
@@ -195,7 +196,7 @@ export default function App() {
           {}
           <div className="flex flex-col gap-5">
             <h2 className="text-lg font-bold flex items-center gap-2">
-              <ShieldCheck className="text-slate-400" size={20} /> O Teu Perfil de Acessibilidade
+              <ShieldCheck className="text-slate-400" size={20} aria-hidden="true" /> O Teu Perfil de Acessibilidade
             </h2>
             
             <div className="flex flex-col gap-6 bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
@@ -204,13 +205,15 @@ export default function App() {
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-center">
                   <label htmlFor="incline-slider" className="font-semibold text-slate-700 text-sm">Máxima Inclinação</label>
-                  <span className="font-bold text-blue-600 text-sm bg-blue-50 px-2 rounded-md">{maxIncline}%</span>
+                  <span className="font-bold text-blue-600 text-sm bg-blue-50 px-2 rounded-md" aria-live="polite" aria-atomic="true">{maxIncline}%</span>
                 </div>
                 <input 
                   id="incline-slider"
                   type="range" 
                   min="2" max="15" step="1" 
-                  value={maxIncline} 
+                  value={maxIncline}
+                  aria-label="Máxima inclinação"
+                  aria-valuetext={`${maxIncline} por cento`}
                   onChange={(e) => setMaxIncline(e.target.value)}
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
@@ -233,13 +236,15 @@ export default function App() {
               <div className="flex flex-col gap-2">
                 <div className="flex justify-between items-center">
                   <label htmlFor="width-slider" className="font-semibold text-slate-700 text-sm">Largura da Via (mín)</label>
-                  <span className="font-bold text-blue-600 text-sm bg-blue-50 px-2 rounded-md">{minWidth}m</span>
+                  <span className="font-bold text-blue-600 text-sm bg-blue-50 px-2 rounded-md" aria-live="polite" aria-atomic="true">{minWidth}m</span>
                 </div>
                 <input 
                   id="width-slider"
                   type="range" 
                   min="0.5" max="2.0" step="0.1" 
-                  value={minWidth} 
+                  value={minWidth}
+                  aria-label="Largura da via mínima"
+                  aria-valuetext={`${minWidth} metros`}
                   onChange={(e) => setMinWidth(e.target.value)}
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
@@ -248,13 +253,15 @@ export default function App() {
               <div className="border-t border-slate-100" />
 
               {}
-              <label className="flex items-center justify-between cursor-pointer group">
+              <label htmlFor="avoid-stairs-toggle" className="flex items-center justify-between cursor-pointer group">
                 <span className="font-semibold text-slate-700 text-sm group-hover:text-blue-700 transition-colors">Evitar Escadas Subtis</span>
                 <div className="relative">
                   <input 
+                    id="avoid-stairs-toggle"
                     type="checkbox" 
                     className="sr-only peer" 
-                    checked={avoidStairs} 
+                    checked={avoidStairs}
+                    aria-label="Evitar escadas subtis"
                     onChange={(e) => setAvoidStairs(e.target.checked)} 
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -263,7 +270,7 @@ export default function App() {
                       }
                     }}
                   />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600" aria-hidden="true"></div>
                 </div>
               </label>
 
@@ -272,9 +279,9 @@ export default function App() {
 
           {}
           {error && (
-            <div role="alert" className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 flex flex-col gap-2 animate-in fade-in">
+            <div role="alert" aria-live="polite" aria-atomic="true" className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 flex flex-col gap-2 animate-in fade-in">
                <div className="flex items-center gap-2 font-bold text-sm">
-                 <AlertCircle className="w-5 h-5" />
+                 <AlertCircle className="w-5 h-5" aria-hidden="true" />
                  Alerta de Acessibilidade
                </div>
               <p className="text-sm font-medium leading-relaxed">{error}</p>
@@ -289,10 +296,11 @@ export default function App() {
              type="button"
              onClick={handleCalculateRoute}
              disabled={isLoading || !startCoords || !endCoords}
+             aria-label={isLoading ? 'A calcular rota' : 'Calcular rota segura'}
              className="w-full flex items-center justify-center px-6 py-4 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl transition-all shadow-lg focus:outline-none focus:ring-4 focus:ring-slate-300 disabled:opacity-50 disabled:cursor-not-allowed group"
            >
              {isLoading ? (
-               <><Loader2 className="animate-spin mr-3 w-5 h-5" />A Calcular...</>
+               <><Loader2 className="animate-spin mr-3 w-5 h-5" aria-hidden="true" />A Calcular...</>
              ) : (
                <span className="group-hover:scale-105 transition-transform">Calcular Rota Segura</span>
              )}
@@ -324,13 +332,13 @@ export default function App() {
 
                 {}
                 {(maxRouteIncline * 100) > maxIncline ? (
-                  <div className="flex items-center justify-center gap-2 text-red-700 bg-red-50 p-3 rounded-xl border border-red-200 text-sm font-bold animate-in zoom-in-95">
-                     <AlertTriangle className="w-5 h-5 shrink-0" />
+                  <div className="flex items-center justify-center gap-2 text-red-700 bg-red-50 p-3 rounded-xl border border-red-200 text-sm font-bold animate-in zoom-in-95" role="alert">
+                     <AlertTriangle className="w-5 h-5 shrink-0" aria-hidden="true" />
                      <span>Atenção: Excede o teu limite de conforto.</span>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center gap-2 text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-sm font-bold animate-in zoom-in-95">
-                     <CheckCircle className="w-5 h-5 shrink-0" />
+                  <div className="flex items-center justify-center gap-2 text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-sm font-bold animate-in zoom-in-95" role="status">
+                     <CheckCircle className="w-5 h-5 shrink-0" aria-hidden="true" />
                      <span>Dentro do teu limite de conforto.</span>
                   </div>
                 )}
