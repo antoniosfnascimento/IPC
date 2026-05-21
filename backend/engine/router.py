@@ -34,7 +34,7 @@ ROUTE_MAX_NODE_DISTANCE_METERS = 500
 
 
 class CityFlowRouter:
-    """Builds and queries a walk-friendly graph enriched with real elevation."""
+    """Constrói e consulta um grafo pedonal enriquecido com elevação real."""
 
     def __init__(self, center_coords=(41.296, -7.746), radius=1500, cache_key: str | None = None):
         self.center_coords = center_coords
@@ -47,7 +47,7 @@ class CityFlowRouter:
         self._snap_subgraph = None
 
     def load_graph(self):
-        log.info("Loading OSM graph (center=%s, radius=%dm)...", self.center_coords, self.radius)
+        log.info("A carregar o grafo OSM (centro=%s, raio=%dm)...", self.center_coords, self.radius)
 
         self.G = ox.graph_from_point(self.center_coords, dist=self.radius, network_type="walk")
 
@@ -61,18 +61,18 @@ class CityFlowRouter:
 
         isolated = list(nx.isolates(self.G))
         self.G.remove_nodes_from(isolated)
-        log.info("Pruned %d motorway/trunk edges and %d isolated nodes.", len(edges_to_remove), len(isolated))
+        log.info("Removidas %d arestas de autoestradas/vias rápidas e %d nós isolados.", len(edges_to_remove), len(isolated))
 
         try:
             annotate_graph_with_elevation(self.G, cache_key=self.cache_key)
         except ElevationServiceError as exc:
-            log.warning("Elevation enrichment failed: %s. Slope filters will rely solely on OSM tags.", exc)
+            log.warning("O enriquecimento de elevação falhou: %s. Os filtros de declive vão usar apenas as tags OSM.", exc)
 
         self._snap_subgraph = self._build_snap_subgraph()
-        log.info("Graph ready: %d nodes, %d edges.", self.G.number_of_nodes(), self.G.number_of_edges())
+        log.info("Grafo pronto: %d nós, %d arestas.", self.G.number_of_nodes(), self.G.number_of_edges())
 
     def _build_snap_subgraph(self):
-        """Subgraph containing only edges where it is safe to place an A/B marker."""
+        """Subgrafo apenas com arestas onde é seguro colocar um marcador A/B."""
         keep_edges = []
         for u, v, k, data in self.G.edges(keys=True, data=True):
             highway = data.get("highway", "")
@@ -111,7 +111,7 @@ class CityFlowRouter:
         }
 
     def _resolve_grade(self, data: dict) -> float:
-        """Prefer the elevation-derived grade; fall back to the OSM `incline` tag."""
+        """Prefere o declive derivado da elevação; recorre à tag OSM `incline` em fallback."""
         grade_abs = data.get("grade_abs")
         if grade_abs is not None:
             try:
@@ -177,8 +177,8 @@ class CityFlowRouter:
 
         if start_dist > ROUTE_MAX_NODE_DISTANCE_METERS or end_dist > ROUTE_MAX_NODE_DISTANCE_METERS:
             FeatureSanitizer.log_warning(
-                f"Route blocked: start/end point is detached from the walkable network "
-                f"(start={start_dist:.1f}m, end={end_dist:.1f}m)."
+                f"Rota bloqueada: ponto de partida/chegada está fora da rede pedonal "
+                f"(partida={start_dist:.1f}m, chegada={end_dist:.1f}m)."
             )
             return [], 0.0, 0.0
 
@@ -188,7 +188,7 @@ class CityFlowRouter:
             )
         except nx.NetworkXNoPath:
             FeatureSanitizer.log_warning(
-                f"No viable path between {request.start_coords} and {request.end_coords}."
+                f"Não existe caminho viável entre {request.start_coords} e {request.end_coords}."
             )
             return [], 0.0, 0.0
 

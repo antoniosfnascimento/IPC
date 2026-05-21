@@ -1,8 +1,8 @@
-"""Registry of cities supported by the CityFlow router.
+"""Registo das cidades suportadas pelo router do CityFlow.
 
-Adding a new city only requires appending an entry here — the rest of the
-backend (startup warmup, snap-point, route endpoint) reads from this
-dictionary.
+Adicionar uma nova cidade requer apenas uma entrada neste dicionário —
+o resto do backend (warmup de arranque, snap-point, endpoint de rotas)
+lê deste registo.
 """
 
 from dataclasses import dataclass
@@ -10,8 +10,8 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class CityConfig:
-    slug: str          # stable machine identifier, used in API payloads
-    display_name: str  # human-friendly label, shown in the UI
+    slug: str          # identificador estável usado nos payloads da API
+    display_name: str  # rótulo apresentado na interface
     center: tuple      # (lat, lon)
     radius_meters: int
 
@@ -43,7 +43,7 @@ def get_city(slug: str) -> CityConfig:
 
 
 def list_cities() -> list[dict]:
-    """Public-facing list used by the /cities endpoint."""
+    """Lista pública usada pelo endpoint /cities."""
     return [
         {
             "slug": c.slug,

@@ -1,47 +1,47 @@
-# Multi-City Viability Report
+# Relatório de Viabilidade Multi-Cidade
 
-## Why this report exists
-During the project review the supervising lecturer challenged the assumption that a larger city (Paris, New York) automatically ships more accessibility-relevant OpenStreetMap data than Vila Real. The doubt is legitimate — population alone is not a proxy for mapping density.
+## Porquê este relatório
+Durante a revisão do projeto, o docente orientador questionou a suposição de que uma cidade maior (Paris, Nova Iorque) traria automaticamente mais dados de acessibilidade no OpenStreetMap do que Vila Real. A dúvida é legítima — a população por si só não é proxy de densidade de mapeamento.
 
-This document presents the **measured** OSM tag density used by the CityFlow routing engine on a 1.5 km radius around the city centre of each candidate, so that the choice of supported cities is justified by data rather than intuition.
+Este documento apresenta os números **medidos** de densidade de tags OSM usados pelo motor de *routing* do CityFlow num raio de 1,5 km à volta do centro de cada candidata. Assim, a escolha das cidades suportadas fica justificada por dados e não por intuição.
 
-All numbers were collected on 21 May 2026 against the live Overpass API through OSMnx 2.1.0 (`network_type='walk'`, `radius=1500m`). They are reproducible by running the snippet at the bottom of this document.
+Todos os valores foram recolhidos a 21 de maio de 2026 contra a API Overpass real, através do OSMnx 2.1.0 (`network_type='walk'`, raio = 1500 m). Podem ser reproduzidos pelo snippet incluído no final do documento.
 
-## Method
-For each candidate city centre we downloaded the walkable graph and counted, per edge, how often each accessibility-relevant tag is present:
+## Método
+Para cada centro de cidade candidato descarregámos o grafo pedonal e contámos, por aresta, quantas vezes cada tag relevante para acessibilidade está presente:
 
-* **`surface`** — feeds the cobblestone/paving penalty (×3.5).
-* **`smoothness`** — wheelchair-grade comfort rating (`excellent` → `very_bad`).
-* **`incline`** — explicit slope tag (already complemented by our EU-DEM enrichment).
-* **`width`** — pedestrian width constraint.
-* **`wheelchair`** — explicit accessibility tag.
-* **`tactile_paving`** — guidance for low-vision users.
-* **`highway=steps`** — hard barrier for wheelchairs / strollers.
+* **`surface`** — alimenta a penalização de calçada/pavimento (×3,5).
+* **`smoothness`** — classificação de conforto orientada a cadeiras de rodas (`excellent` → `very_bad`).
+* **`incline`** — tag explícita de declive (já complementada pelo nosso enriquecimento EU-DEM).
+* **`width`** — restrição de largura pedonal.
+* **`wheelchair`** — tag de acessibilidade explícita.
+* **`tactile_paving`** — orientação para utilizadores com baixa visão.
+* **`highway=steps`** — barreira intransponível para cadeiras de rodas / carrinhos de bebé.
 
-Two centres are reported:
-* **Vila Real** — Avenida Carvalho Araújo, the historic axis already used by the MVP (lat 41.2960, lon -7.7460).
-* **Paris** — Châtelet–Les Halles, in the centre of the city (lat 48.8584, lon 2.3470). Châtelet was picked because it sits at the intersection of medieval, Haussmannian and contemporary urban fabrics, so it touches every surface family in our penalty table.
+Foram analisados dois centros:
+* **Vila Real** — Avenida Carvalho Araújo, eixo histórico já usado pelo MVP (lat 41.2960, lon -7.7460).
+* **Paris** — Châtelet–Les Halles, no centro da cidade (lat 48.8584, lon 2.3470). Châtelet foi escolhido por estar no cruzamento de malhas urbanas medievais, haussmannianas e contemporâneas — toca em todas as famílias de superfície da nossa tabela de penalizações.
 
-> A first iteration also benchmarked Times Square (New York). The result is summarised at the end of the document — short version: NYC ships ~2.2× more edges than Vila Real, but the surface vocabulary is dominated by `concrete`+`asphalt` (i.e. uniform), so the surface and slope filters would respond less visibly than they do in Paris.
+> Uma primeira iteração também avaliou Times Square (Nova Iorque). O resultado está resumido no final do documento — em suma: Nova Iorque tem ~2,2× mais arestas do que Vila Real, mas o vocabulário de superfícies é dominado por `concrete`+`asphalt` (ou seja, uniforme), portanto os filtros de superfície e declive responderiam menos visivelmente do que em Paris.
 
-## Results
+## Resultados
 
-| Metric (1.5 km radius) | Vila Real | Paris (Châtelet) | Ratio Paris ÷ Vila Real |
+| Métrica (raio 1,5 km) | Vila Real | Paris (Châtelet) | Rácio Paris ÷ Vila Real |
 | :--- | ---: | ---: | ---: |
-| Edges in walk graph | 7 366 | 28 756 | **3.9×** |
-| Nodes | 2 811 | 10 039 | 3.6× |
-| Edges with `surface` | 5 372 (72.9 %) | 22 870 (79.5 %) | 4.3× |
-| Edges with `smoothness` | 46 (0.6 %) | 9 072 (31.5 %) | **197×** |
-| Edges with `incline` | 84 (1.1 %) | 1 404 (4.9 %) | 16.7× |
-| Edges with `width` | 176 (2.4 %) | 122 (0.4 %) | 0.7× |
-| Edges with `wheelchair` | 0 | 36 | n/a |
-| Edges with `tactile_paving` | 60 | 1 162 | 19.4× |
-| `highway=steps` | 70 | 72 | 1.0× |
-| `highway=footway` | 1 492 | 23 784 | 15.9× |
+| Arestas no grafo pedonal | 7 366 | 28 756 | **3,9×** |
+| Nós | 2 811 | 10 039 | 3,6× |
+| Arestas com `surface` | 5 372 (72,9 %) | 22 870 (79,5 %) | 4,3× |
+| Arestas com `smoothness` | 46 (0,6 %) | 9 072 (31,5 %) | **197×** |
+| Arestas com `incline` | 84 (1,1 %) | 1 404 (4,9 %) | 16,7× |
+| Arestas com `width` | 176 (2,4 %) | 122 (0,4 %) | 0,7× |
+| Arestas com `wheelchair` | 0 | 36 | n/d |
+| Arestas com `tactile_paving` | 60 | 1 162 | 19,4× |
+| `highway=steps` | 70 | 72 | 1,0× |
+| `highway=footway` | 1 492 | 23 784 | 15,9× |
 
-### Surface vocabulary (counts)
+### Vocabulário de superfícies (contagem)
 
-| Surface | Vila Real | Paris |
+| Superfície | Vila Real | Paris |
 | :--- | ---: | ---: |
 | `asphalt` | 3 445 | 12 908 |
 | `paving_stones` | 457 | 6 949 |
@@ -55,7 +55,7 @@ Two centres are reported:
 | `unpaved` / `dirt` / `wood` | 50 | 0 |
 | `stone` / `concrete:plates` / `metal` | 10 | 182 |
 
-### Smoothness vocabulary (counts)
+### Vocabulário de smoothness (contagem)
 
 | Smoothness | Vila Real | Paris |
 | :--- | ---: | ---: |
@@ -65,39 +65,39 @@ Two centres are reported:
 | `bad` | 0 | 46 |
 | `very_bad` | 0 | 4 |
 
-## Interpretation
+## Interpretação
 
-### What surprises (and what doesn't)
-1. **Vila Real is far from empty.** 72.9 % of its walk edges already carry a `surface` tag. The "the API has no data for Vila Real" intuition is incorrect; the city has been mapped at a respectable level of detail, especially around the historic centre.
-2. **What Vila Real lacks is the *gradient* signals.** `incline` covers only 1.1 % of edges, and `smoothness` only 0.6 %. This is the reason the original MVP reported steep climbs as 0 % — not because Vila Real is missing from OSM, but because slope tagging is sparse there. We addressed that by adding the EU-DEM 25 m elevation enrichment on the backend.
-3. **Paris is in a different league only on the *accessibility* axis.** It is not "more mapped overall" — it has a comparable percentage of `surface` tags (79.5 % vs 72.9 %). What Paris has that is genuinely rare elsewhere is the `smoothness` tag, present on 31.5 % of edges. That is the artefact of a deliberate accessibility-tagging campaign run by Wikimédia France and the city of Paris ahead of the 2024 Olympic and Paralympic Games. The same applies to `wheelchair` (36 edges) and `tactile_paving` (1 162 edges) — these are *campaign-driven* coverage, not population-driven.
-4. **`width` is sparse everywhere.** Vila Real (2.4 %) actually beats Paris (0.4 %) on this tag. The OSMnx fallback in `sanitizer.py` (defensive 0.5 m default) is therefore relevant for both cities.
+### O que surpreende (e o que não surpreende)
+1. **Vila Real está longe de estar vazia.** 72,9 % das arestas pedonais já têm a tag `surface`. A intuição de que "a API não tem dados de Vila Real" está errada; a cidade está mapeada com um nível de detalhe razoável, sobretudo no centro histórico.
+2. **O que falta a Vila Real são os sinais de *gradiente*.** A `incline` cobre apenas 1,1 % das arestas e a `smoothness` apenas 0,6 %. Foi por isto que o MVP original reportava subidas íngremes como 0 % — não porque Vila Real esteja ausente do OSM, mas porque o *tagging* de declive lá é esparso. Resolvemos isto com o enriquecimento de elevação EU-DEM 25 m no backend.
+3. **Paris só está noutro patamar no eixo da *acessibilidade*.** Não é "mais mapeada no geral" — tem uma percentagem comparável de tags `surface` (79,5 % vs 72,9 %). O que Paris tem que é genuinamente raro noutros sítios é a tag `smoothness`, presente em 31,5 % das arestas. Isso é resultado de uma campanha deliberada de mapeamento de acessibilidade conduzida pela Wikimédia França e pela cidade de Paris antes dos Jogos Olímpicos e Paralímpicos de 2024. O mesmo se aplica a `wheelchair` (36 arestas) e `tactile_paving` (1 162 arestas) — cobertura impulsionada por campanha, não por população.
+4. **A tag `width` é esparsa em todo o lado.** Vila Real (2,4 %) até ganha a Paris (0,4 %) neste tag. O fallback do OSMnx em `sanitizer.py` (default defensivo de 0,5 m) é por isso relevante para ambas as cidades.
 
-### Net effect on CityFlow demos
-Each profile filter operates on a different tag:
+### Efeito líquido nas demonstrações do CityFlow
+Cada filtro de perfil atua sobre uma tag diferente:
 
-| Filter | Wins in Vila Real | Wins in Paris |
+| Filtro | Vila Real ganha quando… | Paris ganha quando… |
 | :--- | :--- | :--- |
-| Avoid stairs | Comparable | Comparable |
-| Surface preference | Has cobblestone / sett rich vocabulary | Has the same plus `compacted` / `fine_gravel` (parks) |
-| Slope (max_incline) | Driven by EU-DEM (raw OSM tag almost absent) | Driven by EU-DEM **and** native OSM `incline` |
-| Width | Defensive default kicks in (both cities) | Defensive default kicks in (both cities) |
+| Evitar escadas | Comparável | Comparável |
+| Preferência de piso | Tem vocabulário rico em calçada (`sett`, `cobblestone`) | Tem o mesmo, mais `compacted` / `fine_gravel` (jardins) |
+| Declive (max_incline) | Movido pelo EU-DEM (tag OSM raw praticamente ausente) | Movido pelo EU-DEM **e** pela tag OSM `incline` nativa |
+| Largura | O default defensivo entra em ação (ambas as cidades) | O default defensivo entra em ação (ambas as cidades) |
 
-Because Paris has 16.7× more `incline` tags and 197× more `smoothness` tags, every slider movement in Paris produces a more visible change of route than in Vila Real. Vila Real is **viable** but a Paris demo is **dramatic**. That justifies adding Paris as a second supported city rather than replacing Vila Real.
+Como Paris tem 16,7× mais tags `incline` e 197× mais tags `smoothness`, qualquer mexida num slider em Paris produz uma mudança de rota visualmente mais notória do que em Vila Real. Vila Real é **viável** mas uma demo de Paris é **dramática**. Isso justifica adicionar Paris como segunda cidade suportada, em vez de substituir Vila Real.
 
-## Decision
+## Decisão
 
-CityFlow supports two cities side-by-side:
+O CityFlow suporta duas cidades em paralelo:
 
-1. **Vila Real** (default) — the academic baseline. The MVP was originally designed around the historic centre and the user research (Personas João, Maria, Ricardo) is local. The recently added EU-DEM enrichment closes the slope gap.
-2. **Paris (Châtelet)** — the showcase. Demonstrates the differentiated behaviour of every filter under data-rich conditions and lets the live demo trigger surface, smoothness and slope penalties on a single trip.
+1. **Vila Real** (predefinida) — a base académica. O MVP foi originalmente desenhado em torno do centro histórico e a investigação de utilizadores (personas João, Maria, Ricardo) é local. O enriquecimento EU-DEM, adicionado recentemente, fecha o problema do declive.
+2. **Paris (Châtelet)** — a demonstração. Mostra o comportamento diferenciado de cada filtro em condições de dados ricos e permite que uma demo ao vivo dispare penalizações de piso, conforto e declive numa única viagem.
 
-Both graphs are warmed on backend startup; the frontend offers a dropdown that switches the map view, the snap target and the routing target without reload. No claim is made that Paris is "objectively better mapped". The claim is narrower and supported by the numbers: **Paris ships more accessibility-specific tagging in the radius used by CityFlow, mostly thanks to a campaign-driven mapping effort that has no equivalent in Vila Real.**
+Ambos os grafos são pré-aquecidos no arranque do backend; o frontend disponibiliza um *dropdown* que muda a vista do mapa, o alvo do *snap* e o destino do *routing* sem recarregar a página. Não se afirma que Paris está "objetivamente mais bem mapeada". A afirmação é mais estreita e suportada pelos números: **Paris tem mais *tagging* específico de acessibilidade no raio usado pelo CityFlow, principalmente graças a uma campanha de mapeamento que não tem equivalente em Vila Real.**
 
-## New York: why it was dropped
-Times Square (New York) returned 16 312 edges (2.2× Vila Real, 0.6× Paris), `surface` coverage of 71.3 %, but the vocabulary is dominated by `concrete` (5 559) and `asphalt` (3 968) with very little variety. The slope filter would also be muted (Manhattan around 42nd street is essentially flat) and EU-DEM does not cover the United States, requiring a fallback to SRTM 30 m which is coarser. New York remained on the shortlist but, on this specific metric — *how visibly do the sliders change the route?* — it scored lower than Paris, so it is not part of the first multi-city release.
+## Nova Iorque: porque foi descartada
+Times Square (Nova Iorque) devolveu 16 312 arestas (2,2× Vila Real; 0,6× Paris), cobertura de `surface` de 71,3 %, mas o vocabulário é dominado por `concrete` (5 559) e `asphalt` (3 968) com muito pouca variedade. O filtro de declive também ficaria silencioso (Manhattan, na zona da rua 42, é praticamente plana) e o EU-DEM não cobre os Estados Unidos, obrigando a um fallback para SRTM 30 m, que é mais grosseiro. Nova Iorque manteve-se na *shortlist* mas, na métrica que importa — *quão visivelmente os sliders alteram a rota?* — pontuou abaixo de Paris, pelo que não integra esta primeira versão multi-cidade.
 
-## Reproducing the numbers
+## Reproduzir os números
 ```python
 import osmnx as ox
 from collections import Counter
@@ -117,6 +117,6 @@ for label, (lat, lon) in centers.items():
     edges = list(G.edges(keys=True, data=True))
     total = len(edges)
     def pct(tag): return sum(1 for *_, d in edges if d.get(tag)) / total * 100
-    print(f"{label}: {total} edges, surface={pct('surface'):.1f}%, "
+    print(f"{label}: {total} arestas, surface={pct('surface'):.1f}%, "
           f"smoothness={pct('smoothness'):.1f}%, incline={pct('incline'):.1f}%")
 ```

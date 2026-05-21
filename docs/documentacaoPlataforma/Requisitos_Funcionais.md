@@ -1,20 +1,20 @@
-# Functional Requirements (CityFlow MVP)
+# Tabela de Requisitos Funcionais (CityFlow MVP)
 
-This table summarises the CityFlow architectural documentation as a *Product Backlog* focused on the Minimum Viable Product (MVP), prioritising the core of technical accessibility over business abstractions.
+Esta tabela sintetiza a documentação arquitetural do CityFlow num formato de *Product Backlog* focado no Mínimo Produto Viável (MVP), priorizando o núcleo de acessibilidade técnica face às abstrações de negócio.
 
-| ID | Feature | Technical description | MVP priority |
+| ID | Funcionalidade | Descrição técnica (implementação) | Prioridade (MVP) |
 | :---: | :--- | :--- | :---: |
-| **RF-01** | Accessibility profile selection | The frontend keeps a profile state (via Context API) to switch between "Wheelchair", "Senior", "Colour-blind". Every profile emits a strict JSON validated by Pydantic on the backend. | **Must-have** |
-| **RF-02** | Dynamic routing engine | The backend (FastAPI + OSMnx) receives the coordinates and applies the mathematical heuristic (*edge weights*) computing the path on the graph with Bellman-Ford in less than two seconds. | **Must-have** |
-| **RF-03** | "Low cognitive load" map interface | Use Leaflet / react-leaflet with conditional rendering to hide the underlying street layer, leaving only the calculated route polyline visible (Easy-Read mode). | **Must-have** |
-| **RF-04** | Submission and re-routing for temporary barriers | A frontend endpoint via `navigator.geolocation` intercepts a graph node and sets `is_blocked = True` temporarily, triggering a re-route (active crowdsourcing). | **Must-have** |
-| **RF-05** | Haptic and sonic sensory feedback | Invoke `navigator.vibrate(200)` and `window.speechSynthesis.speak()` whenever the user approaches a node that requires a direction change greater than 45 degrees. | **Must-have** |
-| **RF-06** | Native high-contrast toggle | Global Floating Action Button (`z-50`) that updates the native CSS theme variables, switching the basemap layer to `dark_matter` and enforcing high contrast (ratio > 7:1). | **Must-have** |
-| **RF-07** | Fail-safe parsing (sanitiser) | The backend must not return 500 if `width` or `incline` arrive malformed (e.g. string "narrow") from OpenStreetMap. It must fall back to a safe default. | **Must-have** |
-| **RF-08** | Real-time GPS turn-by-turn navigation | Track the user's coordinates with `watchPosition` to drive a moving marker and rotate the map according to the device compass. | **Nice-to-have** |
-| **RF-09** | SOS button | A quick PWA-embedded button to dial 112 or a pre-defined contact when the wheelchair gets stuck or something urgent happens. | **Nice-to-have** |
-| **RF-10** | In-memory map pre-caching | The server processes the GraphML file on startup (`startup_event`) loading the 1.5 km radius into RAM, avoiding RAM spikes and long waits on each request. | **Must-have** |
+| **RF-01** | Seleção de perfil de acessibilidade | O frontend mantém um estado de perfil (via Context API) para alternar entre "Cadeira de Rodas", "Sénior", "Daltónico". Cada perfil emite um JSON estrito, validado por Pydantic no backend. | **Must-have** |
+| **RF-02** | Motor de *routing* dinâmico | O backend (FastAPI + OSMnx) recebe as coordenadas e aplica a heurística matemática (*edge weights*) calculando o caminho no grafo com Bellman-Ford em menos de dois segundos. | **Must-have** |
+| **RF-03** | Interface de mapa "carga cognitiva reduzida" | Usar Leaflet / react-leaflet com renderização condicional para ocultar a camada base das ruas, deixando visível apenas a *polyline* da rota calculada (modo *Easy Read*). | **Must-have** |
+| **RF-04** | Submissão e re-routing por barreiras temporárias | Endpoint frontend que usa `navigator.geolocation` para intercetar um nó do grafo e marcar `is_blocked = True` temporariamente, desencadeando um recálculo (*crowdsourcing* ativo). | **Must-have** |
+| **RF-05** | Feedback sensorial háptico e sonoro | Invocar `navigator.vibrate(200)` e `window.speechSynthesis.speak()` sempre que o utilizador se aproxime de um nó que exija mudança de direção superior a 45 graus. | **Must-have** |
+| **RF-06** | Toggle nativo de alto contraste | Floating Action Button global (`z-50`) que atualiza as variáveis nativas do tema CSS, mudando a camada do basemap para `dark_matter` e impondo alto contraste (rácio > 7:1). | **Must-have** |
+| **RF-07** | Parsing à prova de falha (sanitizer) | O backend não pode devolver 500 se `width` ou `incline` chegarem mal formatados (ex.: string "narrow") do OpenStreetMap. Tem de cair num default seguro. | **Must-have** |
+| **RF-08** | Navegação GPS turn-by-turn em tempo real | Acompanhar as coordenadas do utilizador com `watchPosition` para mover um marcador e rodar o mapa pelo compasso do dispositivo. | **Nice-to-have** |
+| **RF-09** | Botão SOS | Botão rápido embebido no PWA para marcar 112 ou um contacto pré-definido quando a cadeira de rodas encrava ou existe uma urgência. | **Nice-to-have** |
+| **RF-10** | Pré-cache do mapa em memória | O servidor processa o ficheiro GraphML no arranque (`startup_event`), carregando o raio de 1,5 km para RAM, evitando picos de memória e esperas longas em cada pedido. | **Must-have** |
 
-### MVP decision criteria
-*   **Must-have:** Structural components and core differentiating logic essential for the proof of concept facing the jury / faculty. Without them, the project is not CityFlow.
-*   **Nice-to-have:** Excellent quality-of-life improvements for PWA / mobile that, on the other hand, demand significant technical overhead (live GPS tracking requires altimetric error filtering, so it is not vital for the conceptual prototype where the *generated route on screen* is enough to prove the point).
+### Critérios de decisão MVP
+*   **Must-have:** Componentes estruturais e lógica diferenciadora essenciais para a prova de conceito face ao júri / docentes. Sem isto, o projeto não é o CityFlow.
+*   **Nice-to-have:** Melhorias de qualidade de vida excelentes para PWA / mobile que, por outro lado, exigem overhead técnico significativo (live GPS tracking exige filtragem de erro altimétrico, logo não é vital para o protótipo conceptual em que a *rota gerada no ecrã* já prova o conceito).

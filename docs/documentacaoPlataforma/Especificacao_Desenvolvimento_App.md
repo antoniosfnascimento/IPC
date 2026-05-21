@@ -1,42 +1,42 @@
-# Software Development Specification (CityFlow Inclusive)
+# Especificação de Desenvolvimento de Software (CityFlow Inclusivo)
 
-**Version:** 1.3 (multi-city routing — Vila Real + Paris)
-**Phase:** Minimum Viable Product (MVP)
-**Target audience:** Software engineering teams (backend / frontend)
+**Versão:** 1.3 (*routing* multi-cidade — Vila Real + Paris)
+**Fase:** Mínimo Produto Viável (MVP)
+**Público-alvo:** Equipas de Engenharia de Software (backend / frontend)
 
-This document defines the technical architecture, data models, UML diagrams, API contracts and algorithmic logic required to implement the CityFlow Inclusive MVP. The engine now supports more than one city at the same time — see `Multi_City_Viability_Report.md` for the data-driven justification behind the choice of supported cities.
+Este documento define a arquitetura técnica, modelos de dados, diagramas UML, contratos de API e lógica algorítmica necessários para implementar o MVP do CityFlow Inclusivo. O motor passou a suportar mais do que uma cidade em simultâneo — ver `Multi_City_Viability_Report.md` para a justificação por dados da escolha das cidades suportadas.
 
 ---
 
-## 1. System architecture
+## 1. Arquitetura do sistema
 
-A standard client-server architecture with an in-memory geospatial processing engine (RAM-based graph processing).
+Uma arquitetura cliente-servidor padrão com motor geoespacial em memória (*RAM-based graph processing*).
 
-### Tech stack
-*   **Frontend (PWA):** React (via Vite) integrated with Leaflet.js (map rendering).
-*   **Backend (API server):** Python 3.10+ via FastAPI (asynchronous ASGI).
-*   **Core engine (routing):** OSMnx, NetworkX and GeoPandas.
-*   **Elevation enrichment:** OpenTopoData (free, no key, EU-DEM 25 m dataset).
-*   **Graph storage:** Multi-directed graph (MultiDiGraph) persisted to disk via GraphML for caching.
+### Stack tecnológico
+*   **Frontend (PWA):** React (Vite) integrado com Leaflet.js (renderização de mapas).
+*   **Backend (servidor API):** Python 3.10+ via FastAPI (ASGI assíncrono).
+*   **Motor de *routing*:** OSMnx, NetworkX e GeoPandas.
+*   **Enriquecimento de elevação:** OpenTopoData (gratuito, sem chave, conjunto EU-DEM 25 m).
+*   **Armazenamento de grafos:** *MultiDiGraph* persistido em disco em formato GraphML para cache.
 
-### Component flow
+### Fluxo de componentes
 ```mermaid
 graph TD
-    Client[Mobile / Web client: React + Leaflet] -->|REST API - JSON| API[FastAPI server: main.py]
-    API -->|Pydantic models| Validator[Validation layer: models.py]
-    Validator -->|Python objects| Engine[Graph engine: router.py]
-    Engine -->|I/O| Disk[(Local OSM cache: GraphML)]
+    Client[Cliente Mobile / Web: React + Leaflet] -->|REST API - JSON| API[Servidor FastAPI: main.py]
+    API -->|Modelos Pydantic| Validator[Camada de validação: models.py]
+    Validator -->|Objetos Python| Engine[Motor de grafos: router.py]
+    Engine -->|I/O| Disk[(Cache local OSM: GraphML)]
     Engine -->|HTTP| Elev[(OpenTopoData EU-DEM)]
-    Engine -->|Sub-routines| Alg[Bellman-Ford shortest path w/ custom weight]
+    Engine -->|Sub-rotinas| Alg[Bellman-Ford com peso customizado]
 ```
 
 ---
 
-## 2. Data modelling
+## 2. Modelação de dados
 
-State is held in the OSM road network and the session parameters submitted by the client, plus *blocked edges* for the crowdsourcing feature.
+O estado é mantido na rede viária do OSM e nos parâmetros de sessão submetidos pelo cliente, mais *blocked edges* para suportar a funcionalidade de *crowdsourcing*.
 
-### Class diagram (backend engine)
+### Diagrama de classes (motor backend)
 ```mermaid
 classDiagram
     class UserProfile {
@@ -88,26 +88,26 @@ classDiagram
     MapEngine ..> FeatureSanitizer
 ```
 
-### Edge attributes (data dictionary)
-Each edge in memory carries the OSM tags plus the elevation-derived fields:
-*   `osmid` (list/int): unique OSM identifier.
-*   `highway` (string): road classification (`footway`, `steps`, `residential`).
-*   `length` (float): length in metres.
-*   `incline` (string → float): original OSM slope ("5%", "-2%", "up").
-*   `grade_abs` (float): per-edge slope computed from `(elev_v − elev_u) / length`, capped at 0.25 and smoothed for short edges.
-*   `surface` (string): surface type.
-*   `is_blocked` (boolean): dynamic flag set when a user reports an obstacle.
+### Atributos das arestas (dicionário de dados)
+Cada aresta em memória carrega as tags OSM mais os campos derivados da elevação:
+*   `osmid` (list/int): identificador único do OSM.
+*   `highway` (string): classificação da via (`footway`, `steps`, `residential`).
+*   `length` (float): comprimento em metros.
+*   `incline` (string → float): declive original do OSM ("5%", "-2%", "up").
+*   `grade_abs` (float): declive por aresta calculado de `(elev_v − elev_u) / comprimento`, limitado a 0,25 e suavizado em arestas curtas.
+*   `surface` (string): tipo de piso.
+*   `is_blocked` (boolean): flag dinâmica colocada quando um utilizador reporta um obstáculo.
 
 ---
 
-## 3. API contracts
+## 3. Contratos da API
 
-JSON over HTTP. The system is stateless between calls.
+JSON sobre HTTP. O sistema é *stateless* entre chamadas.
 
 ### 3.1. `POST /api/v1/route`
-**Goal:** return the coordinates of a route under the user's constraints.
+**Objetivo:** devolver as coordenadas de uma rota sob as restrições do utilizador.
 
-**Request body:**
+**Corpo do pedido:**
 ```json
 {
   "start_coords": [41.2954, -7.7451],
@@ -123,9 +123,9 @@ JSON over HTTP. The system is stateless between calls.
 }
 ```
 
-The `city` field is optional and defaults to `vila_real`. Allowed values: `vila_real`, `paris`. The full list is also exposed by `GET /api/v1/cities`.
+O campo `city` é opcional e por defeito é `vila_real`. Valores permitidos: `vila_real`, `paris`. A lista completa também é exposta por `GET /api/v1/cities`.
 
-**Response (200 OK):**
+**Resposta (200 OK):**
 ```json
 {
   "status": "success",
@@ -136,19 +136,19 @@ The `city` field is optional and defaults to `vila_real`. Allowed values: `vila_
 ```
 
 ### 3.2. `POST /api/v1/snap-point`
-**Goal:** snap a raw click coordinate to the nearest walkable street within 250 m.
+**Objetivo:** projetar uma coordenada de clique sobre a rua pedonal mais próxima, até 250 m.
 
-**Request body:**
+**Corpo do pedido:**
 ```json
 { "coords": [41.2960, -7.7445], "city": "vila_real" }
 ```
 
-`city` is optional and defaults to `vila_real`.
+`city` é opcional e por defeito é `vila_real`.
 
 ### 3.3. `GET /api/v1/cities`
-**Goal:** discovery endpoint used by the frontend dropdown.
+**Objetivo:** endpoint de descoberta usado pelo *dropdown* do frontend.
 
-**Response:**
+**Resposta:**
 ```json
 {
   "default": "vila_real",
@@ -159,29 +159,18 @@ The `city` field is optional and defaults to `vila_real`. Allowed values: `vila_
 }
 ```
 
-**Response (200 OK):**
-```json
-{
-  "status": "success",
-  "snapped_coords": [41.29603, -7.74428],
-  "distance_meters": 12.4,
-  "adjusted": true
-}
-```
-If no walkable edge sits within 250 m, the API replies with 422 and a friendly message.
-
-### 3.3. `POST /api/v1/report-barrier` (planned)
-**Goal:** crowdsourcing endpoint. The backend finds the closest edge to the given coordinates and sets `is_blocked = True`, forcing rerouting.
+### 3.4. `POST /api/v1/report-barrier` (planeado)
+**Objetivo:** endpoint de *crowdsourcing*. O backend encontra a aresta mais próxima das coordenadas e marca `is_blocked = True`, forçando recálculo.
 
 ---
 
-## 4. Weighting engine
+## 4. Motor de pesos
 
-The Bellman-Ford cost function multiplies each edge's length by the accessibility penalties:
+A função custo do Bellman-Ford multiplica o comprimento de cada aresta pelas penalizações de acessibilidade:
 
-$$W_e = \text{length}_e \times \prod_{i=1}^{n} \text{penalty}_i$$
+$$W_e = \text{comprimento}_e \times \prod_{i=1}^{n} \text{penalização}_i$$
 
-**Conditional logic:**
+**Lógica condicional:**
 ```python
 penalty_total = 1.0
 
@@ -189,22 +178,22 @@ penalty_total = 1.0
 if data['is_blocked']:
     penalty_total = 99999.0
 
-# Stairs as a hard barrier (wheelchair / stroller)
+# Escadas como barreira (cadeira de rodas / carrinho de bebé)
 if data['highway'] == 'steps' and profile.avoid_stairs:
     penalty_total *= 10000.0
 
-# Non-preferred surface
+# Superfície fora das preferidas
 if data['surface'] not in profile.surface_preference:
     penalty_total *= 3.5
 
-# Slope (real grade preferred over OSM `incline`)
+# Declive (preferimos o gradiente real à tag OSM `incline`)
 grade = data['grade_abs'] or osm_incline_fallback(data['incline'])
 if grade > profile.max_incline:
     penalty_total *= 15.0
 elif grade > profile.max_incline * 0.75:
     penalty_total *= 3.0
 
-# Width
+# Largura
 if data['width'] < profile.min_width:
     penalty_total *= 5.0
 
@@ -213,27 +202,27 @@ W_e = data['length'] * penalty_total
 
 ---
 
-## 5. Frontend state and UI
+## 5. Estado e UI no frontend
 
-### Inclusive navigation state machine
+### State machine de navegação inclusiva
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Configuration: (Large-scale buttons)
-    Configuration --> SelectingPoints: Profile active
+    Idle --> Configuration: (botões grandes)
+    Configuration --> SelectingPoints: perfil ativo
     SelectingPoints --> FormReady
-    FormReady --> CalculatingRoute: Submit (POST)
-    CalculatingRoute --> RouteDisplayed: Success
-    RouteDisplayed --> Navigating: Easy-Read start
-    Navigating --> BarrierReported: "Report" pressed
-    BarrierReported --> CalculatingRoute: Re-route (API)
+    FormReady --> CalculatingRoute: submeter (POST)
+    CalculatingRoute --> RouteDisplayed: sucesso
+    RouteDisplayed --> Navigating: arranque Easy Read
+    Navigating --> BarrierReported: botão "Reportar" pressionado
+    BarrierReported --> CalculatingRoute: re-routing (API)
 ```
 
-### MVP-specific UI features
-1. **Easy-Read mode (reduced cognitive load):** React conditional rendering. Instead of a busy map (high visual load), the frontend hides the underlying tile layer when the user picked a cognitive-limited profile and only shows the route polyline and W3C left/right turn icons on a high-contrast background.
-2. **Multimodal web feedback:**
-    *   *Web Speech API* for native TTS — the app reads instructions (`window.speechSynthesis.speak()`) on each turn node.
-    *   *Vibration API* — haptic feedback (`navigator.vibrate(200)`) at complex intersections for visually-impaired users.
-3. **Large action button (crowdsourcing):** the "Report obstacle" button must be at least 44×44 CSS px (W3C touch target), pinned to the footer (high z-index), using `navigator.geolocation` to report the obstruction.
-4. **Dynamic contrast integration:** global CSS variables (`:root`) wired to a JSX toggle, switching the Leaflet basemap from a light base to a dark one (CartoDB Dark Matter).
-5. **Visual justification toggle:** an optional layer that toggles rejected routes (dashed red lines reported by the API). Avoids permanent cognitive load while preserving algorithmic transparency.
+### Funcionalidades MVP de UI
+1. **Modo Easy Read (carga cognitiva reduzida):** renderização condicional do React. Em vez de um mapa cheio (alta carga visual), o frontend esconde o tile base quando o utilizador escolhe um perfil de limitação cognitiva, mostrando apenas a *polyline* da rota e ícones W3C de curvas sobre fundo de alto contraste.
+2. **Feedback web multimodal:**
+    *   *Web Speech API* para TTS nativo — a app lê as instruções (`window.speechSynthesis.speak()`) em cada nó de manobra.
+    *   *Vibration API* — feedback háptico (`navigator.vibrate(200)`) em interseções complexas para utilizadores com baixa visão.
+3. **Botão grande de ação (*crowdsourcing*):** o botão "Reportar obstáculo" tem pelo menos 44×44 CSS px (W3C touch target), fixo no rodapé (alto z-index) e usa `navigator.geolocation` para reportar a obstrução.
+4. **Integração de contraste dinâmico:** variáveis CSS globais (`:root`) ligadas a um *toggle* JSX, que muda o basemap Leaflet de claro para escuro (CartoDB Dark Matter).
+5. **Toggle de justificação visual:** uma camada opcional que mostra rotas rejeitadas (linhas tracejadas vermelhas reportadas pela API). Evita carga cognitiva permanente preservando transparência algorítmica.

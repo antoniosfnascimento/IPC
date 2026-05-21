@@ -7,7 +7,7 @@ import L from 'leaflet';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-// Fallback list used only if the /cities endpoint is unreachable on first load.
+// Lista de fallback usada apenas se o endpoint /cities não responder no primeiro arranque.
 const FALLBACK_CITIES = [
   { slug: 'vila_real', display_name: 'Vila Real', center: [41.296, -7.746],  radius_meters: 1500 },
   { slug: 'paris',     display_name: 'Paris',     center: [48.8584, 2.347],  radius_meters: 1500 },
@@ -49,10 +49,10 @@ function CityFly({ city }) {
 }
 
 function InteractiveMap({ city, startCoords, setStartCoords, endCoords, setEndCoords, setRouteGeometry, setError, setInfo, setIsSnapping }) {
-  // useMapEvents binds its handlers once with whatever closure exists on
-  // first render. We mirror the live `city` (and a few other props) through
-  // a ref so the handler always sees the user's current selection without
-  // having to re-bind events when the city changes.
+  // O useMapEvents regista os handlers uma única vez, com a closure que existir
+  // no primeiro render. Espelhamos o `city` (e algumas outras props) através de
+  // um ref para que o handler veja sempre a seleção atual do utilizador, sem
+  // precisar de voltar a registar eventos quando a cidade muda.
   const cityRef    = useRef(city);
   const startRef   = useRef(startCoords);
   const endRef     = useRef(endCoords);
@@ -237,7 +237,7 @@ export default function App() {
         setCitySlug((current) => list.some((c) => c.slug === current) ? current : (response.data.default || list[0].slug));
       }
     }).catch(() => {
-      // keep fallback list
+      // mantém a lista de fallback
     });
     return () => { cancelled = true; };
   }, []);

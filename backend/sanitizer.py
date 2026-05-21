@@ -12,7 +12,7 @@ class FeatureSanitizer:
 
     @staticmethod
     def parse_float(value, default: float) -> float:
-        """Parse a value into a float, accepting both '1.5' and '1,5'."""
+        """Converte um valor em float, aceitando tanto '1.5' como '1,5'."""
         if value is None:
             return default
         if not isinstance(value, str):
@@ -32,7 +32,7 @@ class FeatureSanitizer:
 
     @staticmethod
     def sanitize_width(value) -> float:
-        """Apply a defensive fallback (0.5 m) when OSM width data is missing."""
+        """Aplica um fallback defensivo (0,5 m) quando a largura OSM não está definida."""
         if value is None or value == "":
             return 0.5
 

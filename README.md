@@ -1,40 +1,40 @@
-# CityFlow — Inclusive Civic Navigation
+# CityFlow — Navegação Cívica Inclusiva
 
-## Overview
-Assisted-mobility routing for vulnerable urban profiles (Seniors, Wheelchair users). The engine rewrites the classic "shortest path" into a "most viable path" by injecting accessibility penalties on every edge of the OpenStreetMap graph.
+## Visão geral
+Solução de mobilidade assistida para perfis urbanos vulneráveis (séniores, utilizadores de cadeira de rodas). O motor reescreve o clássico "caminho mais curto" como "caminho mais viável", injetando penalizações de acessibilidade em cada aresta do grafo OpenStreetMap.
 
-## Supported cities
-The MVP ships with two cities loaded side-by-side. The frontend lets the user switch between them; both graphs are warmed at backend startup.
+## Cidades suportadas
+O MVP carrega duas cidades em paralelo. O frontend permite alternar entre elas; ambos os grafos são pré-aquecidos no arranque do backend.
 
-| City | Centre (lat, lon) | Radius | Why it is supported |
+| Cidade | Centro (lat, lon) | Raio | Justificação |
 | :--- | :--- | :--- | :--- |
-| **Vila Real** (default) | 41.296, -7.746 | 1.5 km | Academic baseline tied to the UTAD-driven user research (Personas João, Maria, Ricardo). |
-| **Paris (Châtelet)**     | 48.8584, 2.347 | 1.5 km | Showcase: dense OSM data and 31.5% of edges tagged with `smoothness`, so every filter visibly steers the route. See `docs/documentacaoPlataforma/Multi_City_Viability_Report.md` for the comparative numbers. |
+| **Vila Real** (predefinida) | 41.296, -7.746 | 1,5 km | Base académica ligada à investigação de utilizadores conduzida na UTAD (personas João, Maria, Ricardo). |
+| **Paris (Châtelet)** | 48.8584, 2.347 | 1,5 km | Demonstração: dados OSM densos e 31,5 % das arestas com a tag `smoothness`, pelo que cada filtro altera visivelmente a rota. Ver `docs/documentacaoPlataforma/Multi_City_Viability_Report.md` para os números comparativos. |
 
-## Tech stack
+## Stack tecnológica
 - **FastAPI** (Python)
 - **React** (Vite + Tailwind v4)
-- **OSMnx** + **NetworkX** for graph processing
-- **Leaflet** for the map UI
-- **OpenTopoData** (free Digital Elevation Model) for real-world slope enrichment
+- **OSMnx** + **NetworkX** para processamento de grafos
+- **Leaflet** para a interface do mapa
+- **OpenTopoData** (Modelo Digital de Elevação gratuito) para enriquecimento real do declive
 
-## How the routing math works
-The engine runs Bellman-Ford over the OSM walk network. Every edge weight $W_e$ multiplies the segment length by an accessibility penalty:
+## Como funciona a matemática do *routing*
+O motor executa Bellman-Ford sobre a rede pedonal do OSM. Cada peso de aresta $W_e$ multiplica o comprimento do segmento por uma penalização de acessibilidade:
 
-$$W_e = \text{length} \times \text{total penalty (slope + surface + stairs + width)}$$
+$$W_e = \text{comprimento} \times \text{penalização total (declive + piso + escadas + largura)}$$
 
-Slope is the most important input — and the project's biggest hidden risk. Where OSM `incline` tags are sparse (in Vila Real they cover ~1 % of edges), the backend queries the **OpenTopoData EU-DEM** dataset on startup to compute a real per-edge grade from node elevations. This is how the climb to UTAD now shows up correctly instead of being silently flattened to 0 %.
+O declive é a variável mais importante — e a maior fonte de risco oculto. Quando as tags `incline` do OSM são esparsas (em Vila Real cobrem ~1 % das arestas), o backend consulta o conjunto **OpenTopoData EU-DEM** no arranque para calcular o declive real por aresta a partir das elevações dos nós. É assim que a subida à UTAD passa a ser detetada corretamente em vez de aparecer silenciosamente como 0 %.
 
-## Features
-- **Multi-city selector** — switch between Vila Real and Paris from the sidebar; the map, snap target and routing engine follow automatically.
-- **Real slope analysis** — elevation-derived grade is used to penalise steep edges, with a softer "approaching limit" multiplier in addition to the hard 15× cut.
-- **Walkable snap-point** — A/B points are projected onto the nearest pedestrian-friendly edge (up to 250 m). Motorways, trunk roads and untaggable terrain are excluded.
-- **Kinematic time estimate** — walking speed is adjusted for senior/wheelchair pacing.
-- **Coverage bounding box** — keeps the routing graph small (1.5 km radius) and the response time below ~1 s after the first boot.
+## Funcionalidades
+- **Seletor multi-cidade** — alterna entre Vila Real e Paris a partir da barra lateral; o mapa, o destino do *snap* e o motor de rotas seguem automaticamente.
+- **Análise real do declive** — o gradiente derivado da elevação penaliza arestas íngremes, com um multiplicador suave de "perto do limite" para além do corte rígido de 15×.
+- **Snap-point pedonal** — os pontos A/B são projetados sobre a aresta pedonal mais próxima (até 250 m). Autoestradas, vias rápidas e terreno sem rede pedonal são excluídos.
+- **Estimativa cinemática de tempo** — a velocidade de marcha é ajustada para o ritmo de um sénior ou de uma pessoa em cadeira de rodas.
+- **Caixa delimitadora de cobertura** — mantém o grafo pequeno (raio de 1,5 km) e a resposta abaixo de ~1 s depois do primeiro arranque.
 
-## Installation
+## Instalação
 
-### Backend (Python API)
+### Backend (API Python)
 ```bash
 cd backend
 python3 -m venv venv
@@ -43,16 +43,16 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-First boot will warm up both city graphs and fetch their elevation grids from OpenTopoData (free, no key) — count on ~1 minute total. OSMnx caches the graphs locally; subsequent runs are instantaneous.
+O primeiro arranque aquece ambos os grafos de cidade e obtém as elevações através do OpenTopoData (gratuito, sem chave) — conta com ~1 minuto no total. O OSMnx coloca os grafos em cache local; arranques seguintes são imediatos.
 
-### Frontend (React app)
-With the backend running, in a new terminal:
+### Frontend (aplicação React)
+Com o backend a correr, num novo terminal:
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-## One-shot scripts
-- macOS / Linux: `./start.sh` and `./stop.sh`
-- Windows: `./start.ps1` and `./stop.ps1`
+## Scripts de arranque
+- macOS / Linux: `./start.sh` e `./stop.sh`
+- Windows: `start.bat` (recomendado) ou `./start.ps1` e `./stop.ps1`

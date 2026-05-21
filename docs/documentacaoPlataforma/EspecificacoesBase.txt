@@ -1,39 +1,39 @@
-CityFlow Inclusive — Technical Specification and Architecture
-Version: 1.3 (multi-city routing: Vila Real + Paris)
-Reference: Project bible (MVP)
-Paradigm: Accessibility-centred urban navigation (micro-routing)
+CityFlow Inclusivo — Especificação Técnica e Arquitetura
+Versão: 1.3 (routing multi-cidade: Vila Real + Paris)
+Referência: Bíblia do projeto (MVP)
+Paradigma: Navegação urbana centrada na acessibilidade (micro-routing)
 
-1. INTRODUCTION AND LOGLINE
-CityFlow Inclusive is an urban navigation platform that breaks with the "shortest path" model in favour of the "most viable path". The system maps architectural barriers that are invisible to common algorithms, turning physical limitations into mathematical cost parameters.
+1. INTRODUÇÃO E LOGLINE
+O CityFlow Inclusivo é uma plataforma de navegação urbana que rompe com o modelo de "caminho mais curto" em favor do "caminho mais viável". O sistema mapeia barreiras arquitetónicas invisíveis para algoritmos comuns, transformando limitações físicas em parâmetros de custo matemático.
 
-2. TECHNOLOGY DECISIONS (Stack justification)
-2.1. Why Python (FastAPI) instead of ASP.NET MVC?
-Although the team is fluent in C#, the choice fell on Python because of:
-- Geospatial ecosystem: OSMnx and GeoPandas wrap mature C++ libraries (GDAL, PROJ, GEOS). On .NET the integration with these tools needs heavy interop layers or less mature libraries.
-- Graph abstraction: NetworkX allows real-time graph manipulation with a near-natural syntax, simplifying custom penalty heuristics.
-- MVP performance: FastAPI (Starlette + Pydantic) offers great I/O performance, ideal for a service that processes large volumes of geographic data in RAM.
+2. DECISÕES TECNOLÓGICAS (Justificação da stack)
+2.1. Porquê Python (FastAPI) em vez de ASP.NET MVC?
+Apesar do grupo dominar C#, a escolha recaiu sobre Python por:
+- Ecossistema geoespacial: OSMnx e GeoPandas envolvem bibliotecas C++ maduras (GDAL, PROJ, GEOS). Em .NET, a integração com estas ferramentas exigiria interop pesado ou bibliotecas menos maduras.
+- Abstração de grafos: o NetworkX permite manipulação de grafos em tempo real com uma sintaxe quase natural, simplificando heurísticas de penalização custom.
+- Performance no MVP: o FastAPI (Starlette + Pydantic) oferece grande desempenho I/O, ideal para um serviço que processa muitos dados geográficos em RAM.
 
-2.2. Data source: OpenStreetMap (OSM) vs Google Maps API
-Decision: OpenStreetMap (OSM).
-Justification: Google Maps gives the path but not the raw graph. CityFlow needs to manipulate every edge to inject weights. OSM lets us download the bare skeleton of the city (surface, width, stairs tags), something Google keeps closed and expensive per request.
+2.2. Fonte de dados: OpenStreetMap (OSM) vs Google Maps API
+Decisão: OpenStreetMap (OSM).
+Justificação: o Google Maps fornece o caminho mas não o grafo bruto. O CityFlow precisa de manipular cada aresta para injetar pesos. O OSM permite descarregar o esqueleto da cidade (tags de superfície, largura, escadas), algo que o Google mantém fechado e caro por pedido.
 
-3. SYSTEM REQUIREMENTS
-3.1. Functional requirements (FR)
-- FR-01 (Profile management): supports multiple profiles (Wheelchair, Cyclist, Senior) with adjustable variables.
-- FR-02 (Weighting engine): applies dynamic penalties based on `highway=steps`, `incline`, `surface` and `width`.
-- FR-03 (Routing): computes the optimal route based on `custom_weight`, not raw distance.
-- FR-04 (Persistence): keeps a local map cache for fast subsequent startups.
+3. REQUISITOS DO SISTEMA
+3.1. Requisitos funcionais (RF)
+- RF-01 (Gestão de perfis): suporta múltiplos perfis (cadeira de rodas, ciclista, sénior) com variáveis ajustáveis.
+- RF-02 (Motor de pesos): aplica penalizações dinâmicas baseadas em `highway=steps`, `incline`, `surface` e `width`.
+- RF-03 (Routing): calcula a rota ótima com base no `custom_weight`, não na distância pura.
+- RF-04 (Persistência): mantém uma cache local dos mapas para arranques rápidos.
 
-3.2. Non-functional requirements (NFR)
-- NFR-01 (Portability): the project must run on Windows and macOS with a single command (single source of truth).
-- NFR-02 (Data robustness): the system must handle dirty data (e.g. strings in OSM numeric tags).
-- NFR-03 (Response time): a route within a 1.5 km radius must not exceed 2 seconds after the map is loaded.
-- NFR-04 (Realistic slope): when OSM `incline` tags are sparse, the system must derive a per-edge slope from an external elevation source.
+3.2. Requisitos não-funcionais (RNF)
+- RNF-01 (Portabilidade): o projeto tem de correr em Windows e macOS com um único comando (*single source of truth*).
+- RNF-02 (Robustez de dados): tem de tolerar dados "sujos" (ex.: strings em campos numéricos do OSM).
+- RNF-03 (Tempo de resposta): uma rota num raio de 1,5 km não pode exceder 2 segundos depois do mapa carregado.
+- RNF-04 (Declive realista): quando as tags OSM `incline` são esparsas, o sistema tem de derivar um declive por aresta a partir de uma fonte externa de elevação.
 
-4. DATA MODEL (Graph architecture)
-Unlike a typical SQL CRUD system, the "database" is a sparse geospatial graph.
+4. MODELO DE DADOS (Arquitetura de grafos)
+Ao contrário de um CRUD SQL tradicional, a "base de dados" é um grafo geoespacial esparso.
 
-4.1. Domain entities (class diagram)
+4.1. Entidades de domínio (diagrama de classes)
 classDiagram
     class UserProfile {
         +String profile_name
@@ -66,59 +66,59 @@ classDiagram
     MapEngine "1" *-- "many" EdgeData
     MapEngine ..> UserProfile
 
-4.2. Data flow and persistence
-- Ingestion: OSMnx talks to the Overpass API over HTTP.
-- Serialisation: each city graph is stored as GraphML in `/data/osm_cache`.
-- Elevation enrichment: on startup the engine queries OpenTopoData (EU-DEM 25 m) for every node of every supported city and stores per-edge grades.
-- Processing: at runtime each city graph is loaded into RAM as a NetworkX MultiDiGraph. The active city is selected per-request via the `city` field of the API contracts.
+4.2. Fluxo e persistência
+- Ingestão: o OSMnx fala com a API Overpass sobre HTTP.
+- Serialização: cada grafo de cidade fica em GraphML em `/data/osm_cache`.
+- Enriquecimento de elevação: no arranque, o motor consulta o OpenTopoData (EU-DEM 25 m) para cada nó de cada cidade suportada e guarda o declive por aresta.
+- Processamento: em runtime, cada grafo de cidade é carregado para RAM como NetworkX MultiDiGraph. A cidade ativa é selecionada por pedido através do campo `city` nos contratos da API.
 
-5. ROUTING ENGINE (Core logic)
-The CityFlow differentiator is the dynamic weighting algorithm.
+5. MOTOR DE ROUTING (Lógica central)
+O diferenciador do CityFlow é o algoritmo de pesos dinâmicos.
 
-5.1. Penalty function (heuristic)
-For every edge (e), the cost (W) is:
-    W(e) = Length(e) × Penalty_total
+5.1. Função de penalização (heurística)
+Para cada aresta (e), o custo (W) é:
+    W(e) = Comprimento(e) × Penalização_total
 
-Where Penalty_total is the product of the constraints:
-- Binary filter (stairs): if avoid_stairs AND highway == steps → Penalty = 10000
-- Surface filter: if surface NOT IN surface_preference → Penalty × 3.5
-- Slope filter: if ABS(grade) > max_incline → Penalty × 15
-- Slope soft filter: if ABS(grade) > max_incline × 0.75 → Penalty × 3
-- Width filter: if width < min_width → Penalty × 5
+Onde Penalização_total é o produto das restrições:
+- Filtro binário (escadas): se avoid_stairs AND highway == steps → penalização = 10000
+- Filtro de superfície: se surface NOT IN surface_preference → penalização × 3.5
+- Filtro de declive: se ABS(grade) > max_incline → penalização × 15
+- Filtro de declive suave: se ABS(grade) > max_incline × 0.75 → penalização × 3
+- Filtro de largura: se width < min_width → penalização × 5
 
-5.2. Data cleansing (robust parsing)
-The system applies a regex parsing layer to convert OSM human strings ("1.5m", "narrow", "5%") into computable floats, avoiding runtime TypeErrors.
+5.2. Limpeza de dados (parsing robusto)
+O sistema aplica uma camada de parsing por regex para converter strings humanas do OSM ("1.5m", "narrow", "5%") em floats computáveis, evitando TypeErrors em runtime.
 
-5.3. Real elevation enrichment
-On startup the engine queries OpenTopoData (free, no API key, EU-DEM 25 m dataset) for every node, derives `grade_abs` per edge, caps it at 25% and smooths short edges so that DEM noise does not produce false steep slopes.
+5.3. Enriquecimento real de elevação
+No arranque, o motor consulta o OpenTopoData (gratuito, sem chave, conjunto EU-DEM 25 m) para cada nó, deriva `grade_abs` por aresta, limita a 25 % e suaviza arestas curtas, para que o ruído do DEM não produza declives falsos.
 
-6. IMPLEMENTATION AND DEPLOYMENT
-6.1. Environment orchestration (start.sh / start.ps1)
-To guarantee that an intern or faculty member can run the project without configuring Python manually, the startup script:
-- Detects the OS and locates the right binaries.
-- Bootstraps the venv and upgrades pip.
-- Installs the requirements.
-- Starts uvicorn with `--reload` and the Vite dev server.
+6. IMPLEMENTAÇÃO E DEPLOYMENT
+6.1. Orquestração de ambiente (start.sh / start.ps1)
+Para que um estagiário ou docente consiga correr o projeto sem configurar Python manualmente, o script de arranque:
+- Deteta o SO e localiza os binários certos.
+- Inicializa o venv e atualiza o pip.
+- Instala os requirements.
+- Arranca o uvicorn com `--reload` e o servidor de desenvolvimento Vite.
 
-6.2. File layout
-cityflow_inclusive/
+6.2. Estrutura de ficheiros
+cityflow_inclusivo/
 ├── start.sh / start.ps1   # Entry point
 ├── backend/
-│   ├── main.py            # FastAPI endpoints
-│   ├── requirements.txt   # Scientific dependencies
-│   ├── data/osm_cache/    # Per-city persistent storage (Vila Real, Paris)
+│   ├── main.py            # Endpoints FastAPI
+│   ├── requirements.txt   # Dependências científicas
+│   ├── data/osm_cache/    # Armazenamento persistente por cidade (Vila Real, Paris)
 │   └── engine/
-│       ├── cities.py      # Supported-city registry
-│       ├── models.py      # Pydantic contracts
-│       ├── elevation.py   # OpenTopoData enrichment
-│       └── router.py      # NetworkX routing logic
+│       ├── cities.py      # Registo de cidades suportadas
+│       ├── models.py      # Contratos Pydantic
+│       ├── elevation.py   # Enriquecimento OpenTopoData
+│       └── router.py      # Lógica de routing NetworkX
 └── frontend/              # React + Leaflet
 
-7. TEST STRATEGY (Quality assurance)
-The backend must pass three levels of validation in the developer dashboard (/docs):
-- Boundary test: pass coordinates outside the radius. The system must return a friendly 400 instead of crashing.
-- Extreme profile test: set max_incline: 0.02. The engine must find the flattest route in the city, even if 500% longer.
-- Dirty data test: send requests with invalid strings on numeric fields. Pydantic blocks the request before it reaches the engine.
+7. ESTRATÉGIA DE TESTES (Qualidade)
+O backend tem de passar três níveis de validação no dashboard de developer (/docs):
+- Teste de limite: passar coordenadas fora do raio. O sistema tem de devolver um 400 amigável em vez de crashar.
+- Teste de perfil extremo: definir max_incline: 0.02. O motor tem de encontrar a rota mais plana, mesmo que seja 500 % mais longa.
+- Teste de dados sujos: pedidos com strings inválidas em campos numéricos. O Pydantic bloqueia o pedido antes de chegar ao motor.
 
-8. CONCLUSION
-The architecture was designed to be extensible. Adding new sensors (air quality, noise, lighting) in the future only requires new penalty rules in router.py, keeping the entire upstream navigation flow intact.
+8. CONCLUSÃO
+A arquitetura foi desenhada para ser extensível. Adicionar novos sensores (qualidade do ar, ruído, iluminação) no futuro requer apenas novas regras de penalização em router.py, mantendo o fluxo de navegação a montante intacto.

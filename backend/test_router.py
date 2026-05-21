@@ -5,7 +5,7 @@ from models import RouteRequest, UserProfile
 
 
 def run_test():
-    print("--- Testing CityFlowRouter ---")
+    print("--- Teste ao CityFlowRouter ---")
 
     profile = UserProfile(
         profile_name="wheelchair",
@@ -23,14 +23,14 @@ def run_test():
 
     router = CityFlowRouter(center_coords=(41.296, -7.746), radius=1500)
 
-    print("Computing the route. OSM data will be downloaded on the first run...")
+    print("A calcular a rota. Os dados OSM serão descarregados na primeira execução...")
     coords, distance, max_grade = router.get_route(request)
 
     if coords:
-        print(f"\n=> Route found with {len(coords)} navigation points.")
-        print(f"   Distance: {distance:.1f} m | peak slope: {max_grade * 100:.1f}%")
+        print(f"\n=> Rota encontrada com {len(coords)} pontos de navegação.")
+        print(f"   Distância: {distance:.1f} m | declive crítico: {max_grade * 100:.1f}%")
     else:
-        print("\n=> Failure: no route found.")
+        print("\n=> Falha: não foi encontrada uma rota.")
         sys.exit(1)
 
 

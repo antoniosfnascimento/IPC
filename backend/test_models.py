@@ -5,18 +5,18 @@ from sanitizer import FeatureSanitizer
 
 
 def test_sanitizer():
-    print("--- Testing FeatureSanitizer ---")
+    print("--- Teste ao FeatureSanitizer ---")
 
-    print(f"Test None width -> {FeatureSanitizer.sanitize_width(None)} m")
-    print(f"Test '' width   -> {FeatureSanitizer.sanitize_width('')} m")
-    print(f"Test '1.5'      -> {FeatureSanitizer.sanitize_width('1.5')} m")
-    print(f"Test '2,5'      -> {FeatureSanitizer.sanitize_width('2,5')} m")
-    print(f"Test '1.2m'     -> {FeatureSanitizer.sanitize_width('1.2m')} m")
-    print(f"Test '-1'       -> {FeatureSanitizer.sanitize_width('-1')} m")
+    print(f"Teste largura None -> {FeatureSanitizer.sanitize_width(None)} m")
+    print(f"Teste largura ''   -> {FeatureSanitizer.sanitize_width('')} m")
+    print(f"Teste '1.5'        -> {FeatureSanitizer.sanitize_width('1.5')} m")
+    print(f"Teste '2,5'        -> {FeatureSanitizer.sanitize_width('2,5')} m")
+    print(f"Teste '1.2m'       -> {FeatureSanitizer.sanitize_width('1.2m')} m")
+    print(f"Teste '-1'         -> {FeatureSanitizer.sanitize_width('-1')} m")
 
 
 def test_models():
-    print("\n--- Testing Pydantic models ---")
+    print("\n--- Teste aos modelos Pydantic ---")
 
     try:
         profile = UserProfile(
@@ -26,7 +26,7 @@ def test_models():
             avoid_stairs=True,
             surface_preference=["paved", "asphalt"],
         )
-        print("Valid UserProfile:")
+        print("UserProfile válido:")
         print(profile.model_dump_json(indent=2))
 
         request = RouteRequest(
@@ -34,12 +34,12 @@ def test_models():
             end_coords=(41.2982, -7.7420),
             profile=profile,
         )
-        print("Valid RouteRequest accepted.")
+        print("RouteRequest válido aceite.")
     except ValidationError as e:
-        print("Unexpected validation error:", e)
+        print("Erro de validação inesperado:", e)
 
     try:
-        print("\nTrying to create an invalid profile (string for incline)...")
+        print("\nA tentar criar um perfil inválido (string em max_incline)...")
         UserProfile(
             profile_name="wheelchair",
             max_incline="not_a_number",
@@ -48,7 +48,7 @@ def test_models():
             surface_preference=[],
         )
     except ValidationError as e:
-        print("Validation error caught as expected:")
+        print("Erro de validação apanhado, como esperado:")
         print(e)
 
 

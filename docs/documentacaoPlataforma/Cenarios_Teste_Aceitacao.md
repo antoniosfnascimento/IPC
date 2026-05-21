@@ -1,59 +1,59 @@
-# Acceptance Test Scenarios for Routing Business Rules (QA)
+# Cenários de Teste e Aceitação para as Regras de Negócio de *Routing* (QA)
 
-To verify that the mathematical engine of CityFlow and the penalty metrics (data dictionary and mathematical logic) work correctly in a real context, the QA team must validate the algorithm against the following five edge scenarios.
+Para garantir que o motor matemático do CityFlow e as métricas de penalização (dicionário de dados e lógica matemática) funcionam corretamente num contexto real, a equipa de QA deve validar o algoritmo contra os cinco cenários-limite seguintes.
 
-These tests prove the system delivers on its MVP value proposition: prioritising *physical viability* over *distance*.
-
----
-
-## Scenario 1 — Resistance and high slope
-**Profile:** Manual wheelchair user (strong motor restriction, low cardiac tolerance).
-**Goal:** Travel from "Câmara Municipal de Vila Real" to the "Bus Terminal".
-**Active variables:** `max_incline: 0.08` (8%). `avoid_stairs: True`.
-**Acceptance criteria:**
-1. The algorithm **cannot** pick streets steeper than 8%, even if they are the shortest straight line.
-2. The generated path must zig-zag along the contour lines (transversal streets) to neutralise the terrain elevation, showcasing the ×15 multiplier.
-3. *Pass criterion:* The total length (e.g. 2.1 km) must be visibly larger and provably viable compared to the straight-line distance (e.g. 800 m).
+Estes testes provam que o sistema cumpre a sua proposta de valor MVP: dar primazia à *viabilidade física* sobre a *distância*.
 
 ---
 
-## Scenario 2 — Dead end and strict surface filter
-**Profile:** Senior with reduced mobility (uses a walker).
-**Goal:** Cross the historic cobblestone part of the city to reach the Cathedral.
-**Active variables:** `surface_preference: ['paved', 'asphalt']`, explicitly excluding `cobblestone`. `max_incline: 0.12`.
-**Acceptance criteria:**
-1. The system must prefer smooth asphalt. If the only direct access to the cathedral is mostly cobblestone, the route must avoid that artery.
-2. The route should detour around squares with Portuguese cobblestone (×3.5 penalty) as much as possible.
-3. *Fallback:* If the only streets within the last 100 m before the cathedral are cobblestone, the system must not crash (HTTP 424); instead, it returns a route minimising cobblestone exposure and shows an alert: "Bumpy floor on the final stretch".
+## Cenário 1 — Resistência e declive elevado
+**Perfil:** utilizador de cadeira de rodas manual (forte restrição motora, baixa tolerância cardíaca).
+**Objetivo:** viajar da "Câmara Municipal de Vila Real" até ao "Terminal Rodoviário".
+**Variáveis ativas:** `max_incline: 0.08` (8 %). `avoid_stairs: True`.
+**Critérios de aceitação:**
+1. O algoritmo **não pode** escolher ruas mais íngremes do que 8 %, mesmo que sejam o caminho mais curto em linha reta.
+2. O caminho gerado deve fazer ziguezagues pelas curvas de nível (ruas transversais) para anular a elevação do terreno, evidenciando o multiplicador ×15.
+3. *Pass criterion:* o comprimento total (ex.: 2,1 km) tem de ser visivelmente maior e comprovadamente viável face à distância em linha reta (ex.: 800 m).
 
 ---
 
-## Scenario 3 — Low-vision slope tolerance
-**Profile:** Low-vision user (uses a tactile cane).
-**Goal:** Move from the student residences to the southern limit of the UTAD campus (very hilly terrain).
-**Active variables:** `max_incline: 0.20` (20%). Crosswalk penalty active.
-**Acceptance criteria:**
-1. The route must not contour blocks just because of elevation. With a 20% tolerance, the path should look essentially like a straight line.
-2. The system must detect dangerous roundabouts (fast traffic, crosswalks without electronic signalling or tactile islands) and re-route through underpasses or crosswalks with audio signals (×10 penalty), ignoring distance.
+## Cenário 2 — Caminho morto e filtro estrito de superfície
+**Perfil:** sénior com mobilidade reduzida (usa andarilho).
+**Objetivo:** atravessar a parte histórica empedrada da cidade até à Sé.
+**Variáveis ativas:** `surface_preference: ['paved', 'asphalt']`, excluindo `cobblestone` explicitamente. `max_incline: 0.12`.
+**Critérios de aceitação:**
+1. O sistema tem de preferir asfalto liso. Se o único acesso direto à Sé for maioritariamente em calçada, a rota deve evitar essa artéria.
+2. A rota deve contornar as praças com calçada portuguesa (penalização ×3,5) sempre que possível.
+3. *Fallback:* se as únicas ruas dos últimos 100 m antes da Sé forem em calçada, o sistema não pode crashar (HTTP 424); em vez disso, devolve uma rota que minimiza a exposição à calçada e mostra o alerta "piso irregular no último troço".
 
 ---
 
-## Scenario 4 — Real-time crowdsourcing
-**Profile:** Any user with physical limits.
-**Goal:** Daily morning commute (A → B) that crosses a single narrow bridge.
-**Active variables:** `POST /api/v1/report-barrier` was triggered. A `is_blocked: True` barrier was placed 30 min before exactly on the bridge.
-**Acceptance criteria:**
-1. The algorithm reaches the section where `is_blocked = True` was injected into RAM and the 99999 penalty kicks in.
-2. The algorithm closes the lane and re-routes the user before the obstacle.
-3. If the lane is the only land entrance (creating a true isolated node), the API must reply with a semantic business error ("Path crossed by obstacle. No alternative routes until removal.") rather than retrying empty calls in a loop.
+## Cenário 3 — Tolerância ao declive (baixa visão)
+**Perfil:** utilizador de baixa visão (usa bengala tátil).
+**Objetivo:** mover-se das residências universitárias até ao limite sul do campus da UTAD (terreno muito íngreme).
+**Variáveis ativas:** `max_incline: 0.20` (20 %). Penalização de passadeiras ativa.
+**Critérios de aceitação:**
+1. A rota não pode contornar quarteirões só por causa da elevação. Com tolerância de 20 %, o caminho deve assemelhar-se a uma linha reta.
+2. O sistema deve detetar rotundas perigosas (trânsito rápido, passadeiras sem sinalização eletrónica ou ilha tátil) e desviar-se por passagens desniveladas ou passadeiras com sinal sonoro (penalização ×10), ignorando a distância.
 
 ---
 
-## Scenario 5 — Robustness against missing tags
-**Profile:** Double stroller or motorised wheelchair (extra-wide load).
-**Goal:** Walk between two homes in a peripheral residential area.
-**Active variables:** `min_width: 1.25 m`.
-**Acceptance criteria:**
-1. The engine finds residential edges that lack the OSM `width` tag.
-2. `FeatureSanitizer` kicks in and prevents a 500 (Pydantic ValueError) or a Python crash on `None < 1.25`.
-3. The default conservative width (1.0 m) means 1.0 < 1.25 ⇒ the unmapped edge is rejected for safety, avoiding the user getting stuck against narrow walls.
+## Cenário 4 — *Crowdsourcing* em tempo real
+**Perfil:** qualquer utilizador com limitações físicas.
+**Objetivo:** percurso matinal habitual (A → B) que atravessa uma ponte estreita.
+**Variáveis ativas:** `POST /api/v1/report-barrier` foi disparado. Uma barreira `is_blocked: True` foi colocada 30 min antes, exatamente na ponte.
+**Critérios de aceitação:**
+1. O algoritmo atinge a secção onde `is_blocked = True` foi injetado na RAM e a penalização de 99999 entra em ação.
+2. O algoritmo fecha a via e desvia o utilizador antes do obstáculo.
+3. Se essa via for a única entrada terrestre (criando um nó isolado), a API responde com um erro semântico de negócio ("caminho intercetado por obstáculo, sem rotas alternativas até remoção"), em vez de tentar chamadas vazias em loop.
+
+---
+
+## Cenário 5 — Robustez contra tags em falta
+**Perfil:** carrinho de bebé duplo ou cadeira de rodas motorizada (largura extra).
+**Objetivo:** caminhar entre duas casas numa zona residencial periférica.
+**Variáveis ativas:** `min_width: 1.25 m`.
+**Critérios de aceitação:**
+1. O motor encontra arestas residenciais sem a tag `width` no OSM.
+2. O `FeatureSanitizer` entra em ação e impede um 500 (Pydantic ValueError) ou um crash do Python em `None < 1.25`.
+3. A largura conservadora *default* (1,0 m) garante que 1,0 < 1,25 ⇒ a aresta sem tag é rejeitada por segurança, evitando que o utilizador encalhe entre muros estreitos.

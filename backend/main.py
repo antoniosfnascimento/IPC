@@ -10,7 +10,7 @@ from models import RouteRequest, SnapPointRequest
 logging.basicConfig(level=logging.INFO, format="%(levelname)s\t%(name)s: %(message)s")
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="CityFlow Inclusive API", version="1.3")
+app = FastAPI(title="CityFlow Inclusivo API", version="1.3")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,7 +20,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# One router instance per supported city; both graphs are warmed at startup.
+# Uma instância de router por cidade suportada; ambos os grafos
+# são pré-aquecidos no arranque do servidor.
 routers: dict[str, CityFlowRouter] = {
     slug: CityFlowRouter(
         center_coords=city.center,
@@ -39,7 +40,7 @@ def _resolve_router(slug: str | None) -> CityFlowRouter:
 @app.on_event("startup")
 def warmup_graphs():
     for slug, router in routers.items():
-        log.info("Warming up router for city '%s'...", slug)
+        log.info("A pré-aquecer o router para a cidade '%s'...", slug)
         router.load_graph()
 
 

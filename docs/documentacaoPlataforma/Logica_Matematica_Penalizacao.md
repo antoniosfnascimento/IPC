@@ -1,65 +1,65 @@
-# Penalty Heuristics and Mathematical Logic (Routing Engine)
+# Heurísticas de Penalização e Lógica Matemática (Motor de *Routing*)
 
-This document specifies the exact numeric weights that the routing algorithm assigns to graph edges (streets) to intentionally avoid non-accessible paths, computing the *effective cost* of every road.
+Este documento especifica os pesos numéricos exatos que o algoritmo de *routing* atribui às arestas (ruas) do grafo para evitar intencionalmente caminhos não acessíveis, calculando o *custo efetivo* de cada via.
 
-The central formula for the weighting engine is:
-`Directional cost (W) = Physical distance (m) × Σ Penalties`
+A fórmula central do motor de pesos é:
+`Custo direcional (W) = Distância física (m) × Σ penalizações`
 
 ---
 
-## 1. Penalty table by surface type
+## 1. Tabela de penalização por superfície
 
-Based on the OSM `surface` attribute. Values > 1.0 represent additional effort / discomfort for wheelchairs and walkers.
+Baseada no atributo OSM `surface`. Valores > 1,0 representam esforço / desconforto adicional para cadeiras de rodas e andarilhos.
 
-| Surface type (OSM tag) | Floor description | Penalty point | Rationale |
+| Tipo de superfície (tag OSM) | Descrição | Penalty point | Lógica |
 | :--- | :--- | :--- | :--- |
-| `paved`, `asphalt`, `concrete` | Smooth consolidated pavement | **1.0 (neutral)** | Ideal floor. No extra friction. A 100 m street costs 100 m. |
-| `paving_stones`, `sett` | Consolidated paving stones | **1.5** | Adds 50% cost. Some vibration and push effort, but perfectly viable and inherent to historical centres like Vila Real. |
-| `cobblestone` | Portuguese cobblestone (irregular) | **3.5** | High vibration, risk of trapping wheelchair front castors and slipping crutches when wet. A 100 m street now costs 350 m, pushing the algorithm towards a longer smooth detour. |
-| `compacted`, `fine_gravel` | Compacted dirt / fine gravel | **5.0** | High traction effort. Wheels sink slightly. Avoid at almost any cost. |
-| `gravel`, `dirt`, `sand` | Loose gravel, dirt, sand | **20.0** | Practically impassable for any rolling mobility aid. Acts almost as a barrier. |
+| `paved`, `asphalt`, `concrete` | Pavimento liso consolidado | **1,0 (neutro)** | Piso ideal. Sem atrito adicional. Uma rua de 100 m "custa" 100 m. |
+| `paving_stones`, `sett` | Calçada consolidada (pedra) | **1,5** | Aumenta o custo em 50 %. Alguma vibração e esforço de impulso, mas perfeitamente transitável e inerente a centros históricos como Vila Real. |
+| `cobblestone` | Calçada portuguesa (irregular) | **3,5** | Elevada trepidação, risco de prender rodas dianteiras e muletas escorregarem (em piso molhado). Uma via de 100 m passa a custar 350 m, empurrando o algoritmo para um desvio mais longo em asfalto. |
+| `compacted`, `fine_gravel` | Terra batida / gravilha fina | **5,0** | Muito esforço de tração. As rodas afundam ligeiramente. Evitar a quase todo o custo. |
+| `gravel`, `dirt`, `sand` | Gravilha solta, terra, areia | **20,0** | Praticamente intransitável para auxílios de mobilidade. Atua quase como uma barreira. |
 
 ---
 
-## 2. Barrier and static penalties
+## 2. Penalizações por barreiras e variáveis estáticas
 
-Applied across the board when explicit obstacles exist on the road.
+Aplicadas transversalmente sempre que existem obstáculos explícitos na via.
 
-| Barrier type (OSM / API) | Affected profile | Penalty point | Rationale |
+| Tipo de barreira (OSM / API) | Perfil afetado | Penalty point | Lógica |
 | :--- | :--- | :--- | :--- |
-| `highway=steps` (stairs) | Wheelchair, stroller | **10000.0 (infinite / cut)** | Impassable architectural barrier (hard constraint). The weight makes it impossible for the algorithm to select this path regardless of the alternative distance. |
-| Crosswalk without audio signal | Blind / low-vision | **10.0** | Severe risk. Pushes blind users towards signalled intersections or continuous protected pavements — even ten times longer routes are accepted for safety. |
-| `is_blocked=True` (crowdsourcing) | All | **99999.0 (temporal cut)** | Feedback submitted by users (works, parked cars on the pavement). Temporarily cuts the edge. |
+| `highway=steps` (escadas) | Cadeira de rodas, carrinho de bebé | **10000,0 (infinito / corte)** | Barreira arquitetónica intransponível (*hard constraint*). O peso torna impossível ao algoritmo escolher este caminho, independentemente da distância alternativa. |
+| Passadeira sem sinal sonoro | Invisual / baixa visão | **10,0** | Risco severo. Empurra invisuais para interseções sinalizadas ou para passeios contínuos protegidos — aceitam-se rotas dez vezes mais longas em troca de segurança. |
+| `is_blocked=True` (*crowdsourcing*) | Todos | **99999,0 (corte temporal)** | Feedback submetido por utilizadores (obras, carro estacionado no passeio). Corta temporariamente a aresta. |
 
 ---
 
-## 3. The math behind the `15.0` slope multiplier
+## 3. A matemática por trás do multiplicador 15,0 do declive
 
-The theoretical justification in civil engineering and biomechanics for the `15.0` constant in the slope penalty function is based on the *law of excess work* and the exhaustion of human propulsion force on inclined planes.
+A justificação teórica em engenharia civil e biomecânica para a constante `15.0` na função de penalização do declive baseia-se na *lei do trabalho excessivo* e no esgotamento da força humana de propulsão em planos inclinados.
 
-### Why not `2.0` or `5.0`? (Coefficient study)
-If we set a street whose slope exceeds the wheelchair limit (e.g. > 8%) to a mild penalty (e.g. `2.0`), the algorithm would read a 100 m steep climb as a "200 m" path.
-*   **The problem with a low weight:** if the alternative (the ideal flat street) requires a 300 m detour, the algorithm would still pick the steep street (200 cost vs 300 cost). That would **force the user up a hill they cannot sustain by hand**, jeopardising their health or causing a backward wheelchair crash — a fatal risk.
+### Porquê não `2.0` ou `5.0`? (Estudo do coeficiente)
+Se definíssemos que uma rua acima do limite da cadeira de rodas (ex.: > 8 %) tivesse uma penalização leve (ex.: `2.0`), o algoritmo leria uma subida íngreme de 100 m como um percurso de "200 m".
+*   **O problema com um peso baixo:** se a alternativa (a rua plana ideal) exigir um desvio de 300 m, o algoritmo continuaria a escolher a rua íngreme (200 de custo vs 300). Isso **obrigaria o utilizador a subir uma colina que não consegue manter à mão**, comprometendo a sua saúde ou causando uma queda da cadeira de rodas para trás — risco fatal.
 
-### The exponential effort function
-In assisted human locomotion, the energy required to fight gravity on a surface above 5% follows an asymptotic curve. Arm muscle fatigue grows exponentially.
-*   An 8% climb is tolerable for very short distances.
-*   A 12% ramp without a handrail is often impassable regardless of distance.
+### A função exponencial de esforço
+Na locomoção humana assistida, a energia necessária para vencer a gravidade num plano inclinado superior a 5 % segue uma curva assintótica. A fadiga muscular dos braços cresce exponencialmente.
+*   Uma subida de 8 % é tolerável apenas em distâncias muito curtas.
+*   Uma rampa de 12 % sem corrimão é frequentemente intransponível independentemente da distância.
 
-**Setting Penalty = 15.0** tells the graph: *"Climbing this 100 m hill costs you the equivalent of a 1.5 km flat trip."*
+**Ao definirmos Penalização = 15.0**, dizemos ao grafo: *"subir esta colina de 100 m custa-te o equivalente a uma viagem plana de 1,5 km".*
 
-That high cost forces Bellman-Ford to "panic" and search for dozens of alternatives, preferring a 1.2 km zig-zag along flat avenues rather than a straight bumpy climb up the UTAD hill. This coefficient was tested as the *golden ratio* for micro-routing — high enough to redirect, low enough to keep the graph connected.
+Esse custo elevado obriga o Bellman-Ford a "entrar em pânico" e procurar dezenas de alternativas, preferindo enviar o utilizador num ziguezague de 1,2 km por avenidas planas em vez de o atirar contra uma subida direta para a UTAD. Este coeficiente foi testado como a *golden ratio* para micro-routing — alto o suficiente para desviar, baixo o suficiente para manter o grafo conectado.
 
 ---
 
-## 4. Real elevation enrichment (replaces sparse OSM `incline` tags)
+## 4. Enriquecimento real de elevação (substitui tags OSM `incline` esparsas)
 
-OSM `incline` data covers less than 5% of the streets in Vila Real. Without a real source of slope, every filter degenerates to 0%.
+A `incline` do OSM cobre menos de 5 % das ruas em Vila Real. Sem uma fonte real de declive, qualquer filtro degenera para 0 %.
 
-On startup the engine queries **OpenTopoData** (free, no API key, EU-DEM dataset at 25 m resolution) for each graph node and stores the elevation. Every edge derives its grade as `(elev_v − elev_u) / length`.
+No arranque, o motor consulta o **OpenTopoData** (gratuito, sem chave de API, conjunto EU-DEM a 25 m de resolução) para cada nó do grafo e guarda a elevação. Cada aresta calcula o seu declive como `(elev_v − elev_u) / comprimento`.
 
-Two corrections are applied:
-1. **Cap at 25%.** The DEM has 25 m resolution; differences over very short edges (< 20 m) tend to be noisy. The grade is clamped to [-0.25, 0.25].
-2. **Smoothing on short edges.** When an edge is shorter than the DEM resolution, the grade is multiplied by `length / 20`, reducing noise from a single elevation sample.
+São aplicadas duas correções:
+1. **Limite a 25 %.** O DEM tem resolução de 25 m; diferenças em arestas muito curtas (< 20 m) tendem a ser ruidosas. O declive é limitado a [-0,25, 0,25].
+2. **Suavização em arestas curtas.** Quando uma aresta é mais curta do que a resolução do DEM, o declive é multiplicado por `comprimento / 20`, reduzindo o ruído de uma única amostra de elevação.
 
-The router prefers the elevation-derived grade and only falls back to the OSM `incline` tag when elevation enrichment fails.
+O router prefere o declive derivado da elevação e só recorre à tag OSM `incline` quando o enriquecimento de elevação falha.
