@@ -22,7 +22,11 @@ app.add_middleware(
 
 # One router instance per supported city; both graphs are warmed at startup.
 routers: dict[str, CityFlowRouter] = {
-    slug: CityFlowRouter(center_coords=city.center, radius=city.radius_meters)
+    slug: CityFlowRouter(
+        center_coords=city.center,
+        radius=city.radius_meters,
+        cache_key=slug,
+    )
     for slug, city in CITIES.items()
 }
 

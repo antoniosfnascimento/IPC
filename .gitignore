@@ -5,6 +5,7 @@ __pycache__/
 .vite/
 data/osm_cache/
 backend/data/osm_cache/
+backend/data/elevation_cache/
 backend/cache/
 .DS_Store
 .vs/

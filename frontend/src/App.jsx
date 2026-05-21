@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Map as MapIcon, AlertCircle, Loader2, Navigation, Goal, Route as RouteIcon, ShieldCheck, AlertTriangle, CheckCircle, Menu, X, Info, Building2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Map as MapIcon, AlertCircle, Loader2, Navigation, Goal, Route as RouteIcon, ShieldCheck, AlertTriangle, CheckCircle, Menu, X, Info, Building2, ChevronDown, Check } from 'lucide-react';
 
 import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
@@ -49,11 +49,23 @@ function CityFly({ city }) {
 }
 
 function InteractiveMap({ city, startCoords, setStartCoords, endCoords, setEndCoords, setRouteGeometry, setError, setInfo, setIsSnapping }) {
+  // useMapEvents binds its handlers once with whatever closure exists on
+  // first render. We mirror the live `city` (and a few other props) through
+  // a ref so the handler always sees the user's current selection without
+  // having to re-bind events when the city changes.
+  const cityRef    = useRef(city);
+  const startRef   = useRef(startCoords);
+  const endRef     = useRef(endCoords);
+  useEffect(() => { cityRef.current  = city;        }, [city]);
+  useEffect(() => { startRef.current = startCoords; }, [startCoords]);
+  useEffect(() => { endRef.current   = endCoords;   }, [endCoords]);
+
   useMapEvents({
     async click(e) {
-      const centerLatLng = L.latLng(city.center[0], city.center[1]);
+      const activeCity = cityRef.current;
+      const centerLatLng = L.latLng(activeCity.center[0], activeCity.center[1]);
       const dist = centerLatLng.distanceTo(e.latlng);
-      if (dist >= city.radius_meters * 0.95) {
+      if (dist >= activeCity.radius_meters * 0.95) {
         setError('Clicaste fora da zona de cobertura atual do CityFlow.');
         return;
       }
@@ -61,7 +73,7 @@ function InteractiveMap({ city, startCoords, setStartCoords, endCoords, setEndCo
       setError(null);
       setInfo(null);
 
-      if (startCoords && endCoords) {
+      if (startRef.current && endRef.current) {
         setStartCoords(null);
         setEndCoords(null);
         setRouteGeometry([]);
@@ -72,17 +84,17 @@ function InteractiveMap({ city, startCoords, setStartCoords, endCoords, setEndCo
       try {
         const response = await axios.post(`${API_BASE_URL}/api/v1/snap-point`, {
           coords: [e.latlng.lat, e.latlng.lng],
-          city: city.slug,
-        });
+          city: activeCity.slug,
+        }, { timeout: 12000 });
 
         if (response.data && response.data.snapped_coords) {
           const snapped = response.data.snapped_coords;
           const adjusted = response.data.adjusted;
           const offset = response.data.distance_meters;
 
-          if (!startCoords) {
+          if (!startRef.current) {
             setStartCoords(snapped);
-          } else if (!endCoords) {
+          } else if (!endRef.current) {
             setEndCoords(snapped);
           }
 
@@ -91,8 +103,12 @@ function InteractiveMap({ city, startCoords, setStartCoords, endCoords, setEndCo
           }
         }
       } catch (err) {
-        if (err.response && err.response.status === 422) {
+        if (err.code === 'ECONNABORTED') {
+          setError('O servidor demorou demasiado a validar o ponto. Tenta novamente em instantes.');
+        } else if (err.response && err.response.status === 422) {
           setError(err.response.data.detail || 'Ponto inválido. Clica mais perto de uma rua pedonal.');
+        } else if (err.message && err.message.toLowerCase().includes('network')) {
+          setError('Sem ligação ao servidor. Verifica se o backend está em execução.');
         } else {
           setError('Não foi possível validar o ponto no servidor.');
         }
@@ -103,6 +119,87 @@ function InteractiveMap({ city, startCoords, setStartCoords, endCoords, setEndCo
   });
 
   return null;
+}
+
+function CityDropdown({ cities, value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onClickAway = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    const onEsc = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onClickAway);
+    document.addEventListener('keydown', onEsc);
+    return () => {
+      document.removeEventListener('mousedown', onClickAway);
+      document.removeEventListener('keydown', onEsc);
+    };
+  }, [open]);
+
+  const current = cities.find((c) => c.slug === value) || cities[0];
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 bg-white border border-slate-200 hover:border-blue-300 rounded-xl px-4 py-3 text-left shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 min-h-[48px]"
+      >
+        <span className="flex items-center gap-3 min-w-0">
+          <span className="bg-blue-50 text-blue-600 rounded-lg p-1.5 shrink-0">
+            <Building2 size={18} />
+          </span>
+          <span className="font-bold text-slate-800 truncate">{current.display_name}</span>
+        </span>
+        <ChevronDown
+          size={18}
+          className={`text-slate-400 shrink-0 transition-transform duration-200 ${open ? 'rotate-180 text-blue-600' : ''}`}
+        />
+      </button>
+
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute z-30 left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1"
+        >
+          {cities.map((c) => {
+            const active = c.slug === value;
+            return (
+              <li
+                key={c.slug}
+                role="option"
+                aria-selected={active}
+                tabIndex={0}
+                onClick={() => { onChange(c.slug); setOpen(false); }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onChange(c.slug);
+                    setOpen(false);
+                  }
+                }}
+                className={`flex items-center justify-between gap-3 px-4 py-3 cursor-pointer transition-colors ${
+                  active ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'
+                }`}
+              >
+                <span className="font-semibold">{c.display_name}</span>
+                {active && <Check size={16} className="text-blue-600" />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export default function App() {
@@ -246,23 +343,17 @@ export default function App() {
 
           <div className="border-t border-slate-100" />
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <h2 className="text-lg font-bold flex items-center gap-2">
               <Building2 className="text-slate-400" size={20} /> Cidade
             </h2>
-            <label htmlFor="city-select" className="sr-only">Escolhe a cidade</label>
-            <select
-              id="city-select"
+            <CityDropdown
+              cities={cities}
               value={city.slug}
-              onChange={(e) => handleCityChange(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 cursor-pointer"
-            >
-              {cities.map((c) => (
-                <option key={c.slug} value={c.slug}>{c.display_name}</option>
-              ))}
-            </select>
-            <p className="text-xs text-slate-400">
-              A escolha define qual o grafo OSM (com elevação real) que o motor usa para calcular as rotas.
+              onChange={handleCityChange}
+            />
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Cada cidade tem o seu próprio grafo OSM com elevação real do terreno.
             </p>
           </div>
 

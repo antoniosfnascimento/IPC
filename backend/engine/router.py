@@ -36,9 +36,10 @@ ROUTE_MAX_NODE_DISTANCE_METERS = 500
 class CityFlowRouter:
     """Builds and queries a walk-friendly graph enriched with real elevation."""
 
-    def __init__(self, center_coords=(41.296, -7.746), radius=1500):
+    def __init__(self, center_coords=(41.296, -7.746), radius=1500, cache_key: str | None = None):
         self.center_coords = center_coords
         self.radius = radius
+        self.cache_key = cache_key
 
         ox.settings.use_cache = True
         ox.settings.cache_folder = CACHE_DIR
@@ -63,7 +64,7 @@ class CityFlowRouter:
         log.info("Pruned %d motorway/trunk edges and %d isolated nodes.", len(edges_to_remove), len(isolated))
 
         try:
-            annotate_graph_with_elevation(self.G)
+            annotate_graph_with_elevation(self.G, cache_key=self.cache_key)
         except ElevationServiceError as exc:
             log.warning("Elevation enrichment failed: %s. Slope filters will rely solely on OSM tags.", exc)
 
