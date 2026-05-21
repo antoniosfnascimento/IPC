@@ -1,5 +1,5 @@
 CityFlow Inclusive — Technical Specification and Architecture
-Version: 1.2 (real elevation enrichment + walkable snap-point)
+Version: 1.3 (multi-city routing: Vila Real + Paris)
 Reference: Project bible (MVP)
 Paradigm: Accessibility-centred urban navigation (micro-routing)
 
@@ -68,9 +68,9 @@ classDiagram
 
 4.2. Data flow and persistence
 - Ingestion: OSMnx talks to the Overpass API over HTTP.
-- Serialisation: the graph is stored as GraphML in `/data/osm_cache`.
-- Elevation enrichment: on startup the engine queries OpenTopoData (EU-DEM 25 m) for every node and stores per-edge grades.
-- Processing: at runtime the graph is loaded into RAM (NetworkX MultiDiGraph).
+- Serialisation: each city graph is stored as GraphML in `/data/osm_cache`.
+- Elevation enrichment: on startup the engine queries OpenTopoData (EU-DEM 25 m) for every node of every supported city and stores per-edge grades.
+- Processing: at runtime each city graph is loaded into RAM as a NetworkX MultiDiGraph. The active city is selected per-request via the `city` field of the API contracts.
 
 5. ROUTING ENGINE (Core logic)
 The CityFlow differentiator is the dynamic weighting algorithm.
@@ -106,8 +106,9 @@ cityflow_inclusive/
 ├── backend/
 │   ├── main.py            # FastAPI endpoints
 │   ├── requirements.txt   # Scientific dependencies
-│   ├── data/osm_cache/    # Vila Real persistent storage
+│   ├── data/osm_cache/    # Per-city persistent storage (Vila Real, Paris)
 │   └── engine/
+│       ├── cities.py      # Supported-city registry
 │       ├── models.py      # Pydantic contracts
 │       ├── elevation.py   # OpenTopoData enrichment
 │       └── router.py      # NetworkX routing logic

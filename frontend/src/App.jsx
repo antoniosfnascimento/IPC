@@ -1,22 +1,26 @@
-import { useState } from 'react';
-import { Map as MapIcon, AlertCircle, Loader2, Navigation, Goal, Route as RouteIcon, ShieldCheck, AlertTriangle, CheckCircle, Menu, X, Info } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Map as MapIcon, AlertCircle, Loader2, Navigation, Goal, Route as RouteIcon, ShieldCheck, AlertTriangle, CheckCircle, Menu, X, Info, Building2 } from 'lucide-react';
 
 import axios from 'axios';
-import { MapContainer, TileLayer, Marker, Polyline, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 
 const API_BASE_URL = 'http://localhost:8000';
 
-const MAP_COVERAGE_RADIUS = 1500;
-const CENTER_COORDS = [41.296, -7.746];
-const CENTER_LATLNG = L.latLng(CENTER_COORDS[0], CENTER_COORDS[1]);
-
-const marginLat = MAP_COVERAGE_RADIUS / 111000;
-const marginLng = MAP_COVERAGE_RADIUS / (111000 * Math.cos(CENTER_COORDS[0] * Math.PI / 180));
-const MAX_BOUNDS = [
-  [CENTER_COORDS[0] - marginLat, CENTER_COORDS[1] - marginLng],
-  [CENTER_COORDS[0] + marginLat, CENTER_COORDS[1] + marginLng]
+// Fallback list used only if the /cities endpoint is unreachable on first load.
+const FALLBACK_CITIES = [
+  { slug: 'vila_real', display_name: 'Vila Real', center: [41.296, -7.746],  radius_meters: 1500 },
+  { slug: 'paris',     display_name: 'Paris',     center: [48.8584, 2.347],  radius_meters: 1500 },
 ];
+
+function computeBounds(center, radius) {
+  const marginLat = radius / 111000;
+  const marginLng = radius / (111000 * Math.cos(center[0] * Math.PI / 180));
+  return [
+    [center[0] - marginLat, center[1] - marginLng],
+    [center[0] + marginLat, center[1] + marginLng],
+  ];
+}
 
 const startIconHtml = `<div class="bg-blue-600 text-white rounded-full p-2 w-9 h-9 flex items-center justify-center shadow-lg border-2 border-white">
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -26,14 +30,30 @@ const endIconHtml = `<div class="bg-red-600 text-white rounded-full p-2 w-9 h-9 
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
 </div>`;
 
-const startMarkerIcon = new L.divIcon({ html: startIconHtml, className: "custom-marker", iconSize: [36, 36], iconAnchor: [18, 36] });
-const endMarkerIcon = new L.divIcon({ html: endIconHtml, className: "custom-marker", iconSize: [36, 36], iconAnchor: [18, 36] });
+const startMarkerIcon = new L.divIcon({ html: startIconHtml, className: 'custom-marker', iconSize: [36, 36], iconAnchor: [18, 36] });
+const endMarkerIcon   = new L.divIcon({ html: endIconHtml,   className: 'custom-marker', iconSize: [36, 36], iconAnchor: [18, 36] });
 
-function InteractiveMap({ startCoords, setStartCoords, endCoords, setEndCoords, setRouteGeometry, setError, setInfo, setIsSnapping }) {
+function CityFly({ city }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!map || !city) return;
+    try {
+      const bounds = computeBounds(city.center, city.radius_meters);
+      map.setMaxBounds(L.latLngBounds(bounds));
+      map.flyTo(L.latLng(city.center[0], city.center[1]), 15, { duration: 0.8 });
+    } catch (err) {
+      console.warn('CityFly skipped:', err);
+    }
+  }, [city, map]);
+  return null;
+}
+
+function InteractiveMap({ city, startCoords, setStartCoords, endCoords, setEndCoords, setRouteGeometry, setError, setInfo, setIsSnapping }) {
   useMapEvents({
     async click(e) {
-      const dist = CENTER_LATLNG.distanceTo(e.latlng);
-      if (dist >= MAP_COVERAGE_RADIUS * 0.95) {
+      const centerLatLng = L.latLng(city.center[0], city.center[1]);
+      const dist = centerLatLng.distanceTo(e.latlng);
+      if (dist >= city.radius_meters * 0.95) {
         setError('Clicaste fora da zona de cobertura atual do CityFlow.');
         return;
       }
@@ -51,7 +71,8 @@ function InteractiveMap({ startCoords, setStartCoords, endCoords, setEndCoords, 
       setIsSnapping(true);
       try {
         const response = await axios.post(`${API_BASE_URL}/api/v1/snap-point`, {
-          coords: [e.latlng.lat, e.latlng.lng]
+          coords: [e.latlng.lat, e.latlng.lng],
+          city: city.slug,
         });
 
         if (response.data && response.data.snapped_coords) {
@@ -78,16 +99,18 @@ function InteractiveMap({ startCoords, setStartCoords, endCoords, setEndCoords, 
       } finally {
         setIsSnapping(false);
       }
-    }
+    },
   });
 
   return null;
 }
 
 export default function App() {
+  const [cities, setCities] = useState(FALLBACK_CITIES);
+  const [citySlug, setCitySlug] = useState(FALLBACK_CITIES[0].slug);
+
   const [startCoords, setStartCoords] = useState(null);
   const [endCoords, setEndCoords] = useState(null);
-
   const [routeGeometry, setRouteGeometry] = useState([]);
   const [routeDistance, setRouteDistance] = useState(0);
   const [maxRouteIncline, setMaxRouteIncline] = useState(0);
@@ -101,6 +124,37 @@ export default function App() {
   const [error, setError] = useState(null);
   const [info, setInfo] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const city = useMemo(
+    () => cities.find((c) => c.slug === citySlug) || cities[0],
+    [cities, citySlug],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    axios.get(`${API_BASE_URL}/api/v1/cities`).then((response) => {
+      if (cancelled || !response.data) return;
+      const list = response.data.cities || [];
+      if (list.length > 0) {
+        setCities(list);
+        setCitySlug((current) => list.some((c) => c.slug === current) ? current : (response.data.default || list[0].slug));
+      }
+    }).catch(() => {
+      // keep fallback list
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleCityChange = (slug) => {
+    setCitySlug(slug);
+    setStartCoords(null);
+    setEndCoords(null);
+    setRouteGeometry([]);
+    setRouteDistance(0);
+    setMaxRouteIncline(0);
+    setError(null);
+    setInfo(null);
+  };
 
   const handleCalculateRoute = async () => {
     if (!startCoords || !endCoords) {
@@ -119,13 +173,14 @@ export default function App() {
       const payload = {
         start_coords: startCoords,
         end_coords: endCoords,
+        city: city.slug,
         profile: {
-          profile_name: "custom_user",
+          profile_name: 'custom_user',
           max_incline: maxIncline / 100.0,
           min_width: parseFloat(minWidth),
           avoid_stairs: avoidStairs,
-          surface_preference: ["paved", "asphalt", "concrete"]
-        }
+          surface_preference: ['paved', 'asphalt', 'concrete'],
+        },
       };
 
       const response = await axios.post(`${API_BASE_URL}/api/v1/route`, payload);
@@ -135,7 +190,6 @@ export default function App() {
         setRouteDistance(response.data.distance_meters || 0);
         setMaxRouteIncline(response.data.max_route_incline || 0);
       }
-
     } catch (err) {
       if (err.response && err.response.status === 424) {
         setError(`Não existe rota possível com as restrições atuais (inclinação máx.: ${maxIncline}%, largura mín.: ${minWidth} m).`);
@@ -146,6 +200,8 @@ export default function App() {
       setIsLoading(false);
     }
   };
+
+  const initialBounds = useMemo(() => computeBounds(city.center, city.radius_meters), [city]);
 
   return (
     <div className="w-screen h-screen flex overflow-hidden bg-slate-50 font-sans text-slate-800">
@@ -182,13 +238,33 @@ export default function App() {
               <h1 className="text-3xl font-black text-slate-800 tracking-tight leading-none mb-1">
                 CityFlow
               </h1>
-              <p className="text-blue-600 font-bold tracking-wide">
-                Vila Real
+              <p className="text-blue-600 font-bold tracking-wide text-sm">
+                Mobilidade inclusiva
               </p>
             </div>
           </div>
 
           <div className="border-t border-slate-100" />
+
+          <div className="flex flex-col gap-2">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Building2 className="text-slate-400" size={20} /> Cidade
+            </h2>
+            <label htmlFor="city-select" className="sr-only">Escolhe a cidade</label>
+            <select
+              id="city-select"
+              value={city.slug}
+              onChange={(e) => handleCityChange(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 cursor-pointer"
+            >
+              {cities.map((c) => (
+                <option key={c.slug} value={c.slug}>{c.display_name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-400">
+              A escolha define qual o grafo OSM (com elevação real) que o motor usa para calcular as rotas.
+            </p>
+          </div>
 
           <div className="flex flex-col gap-2">
             <h2 className="text-lg font-bold flex items-center gap-2">
@@ -232,14 +308,14 @@ export default function App() {
                 />
 
                 <div className="flex justify-between text-xs font-semibold mt-1">
-                   <span className={maxIncline <= 5 ? "text-emerald-600 font-bold" : "text-slate-400"}>
-                     {maxIncline <= 5 ? "Suave / Muito acessível" : ""}
+                   <span className={maxIncline <= 5 ? 'text-emerald-600 font-bold' : 'text-slate-400'}>
+                     {maxIncline <= 5 ? 'Suave / Muito acessível' : ''}
                    </span>
-                   <span className={maxIncline > 5 && maxIncline <= 11 ? "text-blue-600 font-bold" : "text-slate-400"}>
-                     {maxIncline > 5 && maxIncline <= 11 ? "Padrão (norma técnica)" : ""}
+                   <span className={maxIncline > 5 && maxIncline <= 11 ? 'text-blue-600 font-bold' : 'text-slate-400'}>
+                     {maxIncline > 5 && maxIncline <= 11 ? 'Padrão (norma técnica)' : ''}
                    </span>
-                   <span className={maxIncline >= 12 ? "text-red-500 font-bold" : "text-slate-400"}>
-                     {maxIncline >= 12 ? "Exigente / só para especialistas" : ""}
+                   <span className={maxIncline >= 12 ? 'text-red-500 font-bold' : 'text-slate-400'}>
+                     {maxIncline >= 12 ? 'Exigente / só para especialistas' : ''}
                    </span>
                 </div>
               </div>
@@ -368,10 +444,10 @@ export default function App() {
           </div>
         )}
         <MapContainer
-          center={CENTER_COORDS}
+          center={city.center}
           zoom={15}
           style={{ height: '100%', width: '100%' }}
-          maxBounds={MAX_BOUNDS}
+          maxBounds={initialBounds}
           maxBoundsViscosity={1.0}
           minZoom={14}
           zoomControl={false}
@@ -381,7 +457,10 @@ export default function App() {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
+          <CityFly city={city} />
+
           <InteractiveMap
+             city={city}
              startCoords={startCoords} setStartCoords={setStartCoords}
              endCoords={endCoords} setEndCoords={setEndCoords}
              setRouteGeometry={setRouteGeometry}
@@ -391,7 +470,7 @@ export default function App() {
           />
 
           {startCoords && <Marker position={startCoords} icon={startMarkerIcon} />}
-          {endCoords && <Marker position={endCoords} icon={endMarkerIcon} />}
+          {endCoords   && <Marker position={endCoords}   icon={endMarkerIcon}   />}
 
           {routeGeometry.length > 0 && (
             <Polyline

@@ -1,10 +1,10 @@
 # Software Development Specification (CityFlow Inclusive)
 
-**Version:** 1.2 (real elevation enrichment + walkable snap-point)
+**Version:** 1.3 (multi-city routing — Vila Real + Paris)
 **Phase:** Minimum Viable Product (MVP)
 **Target audience:** Software engineering teams (backend / frontend)
 
-This document defines the technical architecture, data models, UML diagrams, API contracts and algorithmic logic required to implement the CityFlow Inclusive MVP.
+This document defines the technical architecture, data models, UML diagrams, API contracts and algorithmic logic required to implement the CityFlow Inclusive MVP. The engine now supports more than one city at the same time — see `Multi_City_Viability_Report.md` for the data-driven justification behind the choice of supported cities.
 
 ---
 
@@ -112,6 +112,7 @@ JSON over HTTP. The system is stateless between calls.
 {
   "start_coords": [41.2954, -7.7451],
   "end_coords": [41.2982, -7.7420],
+  "city": "vila_real",
   "profile": {
     "profile_name": "wheelchair",
     "max_incline": 0.08,
@@ -121,6 +122,8 @@ JSON over HTTP. The system is stateless between calls.
   }
 }
 ```
+
+The `city` field is optional and defaults to `vila_real`. Allowed values: `vila_real`, `paris`. The full list is also exposed by `GET /api/v1/cities`.
 
 **Response (200 OK):**
 ```json
@@ -137,7 +140,23 @@ JSON over HTTP. The system is stateless between calls.
 
 **Request body:**
 ```json
-{ "coords": [41.2960, -7.7445] }
+{ "coords": [41.2960, -7.7445], "city": "vila_real" }
+```
+
+`city` is optional and defaults to `vila_real`.
+
+### 3.3. `GET /api/v1/cities`
+**Goal:** discovery endpoint used by the frontend dropdown.
+
+**Response:**
+```json
+{
+  "default": "vila_real",
+  "cities": [
+    { "slug": "vila_real", "display_name": "Vila Real", "center": [41.296, -7.746], "radius_meters": 1500 },
+    { "slug": "paris",     "display_name": "Paris",     "center": [48.8584, 2.347], "radius_meters": 1500 }
+  ]
+}
 ```
 
 **Response (200 OK):**
