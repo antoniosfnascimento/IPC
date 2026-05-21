@@ -1,72 +1,57 @@
-from models import UserProfile, RouteRequest
-from sanitizer import FeatureSanitizer
 from pydantic import ValidationError
 
-def test_sanitizer():
-    print("--- Testing FeatureSanitizer ---")
-    
-    
-    w1 = FeatureSanitizer.sanitize_width(None)
-    print(f"Test None width -> {w1}m")
-    
-    
-    w2 = FeatureSanitizer.sanitize_width("")
-    print(f"Test Empty width -> {w2}m")
-    
-    
-    w3 = FeatureSanitizer.sanitize_width("1.5")
-    print(f"Test '1.5' -> {w3}m")
-    
-    
-    w4 = FeatureSanitizer.sanitize_width("2,5")
-    print(f"Test '2,5' -> {w4}m")
-    
-    
-    w5 = FeatureSanitizer.sanitize_width("1.2m")
-    print(f"Test '1.2m' -> {w5}m")
+from models import RouteRequest, UserProfile
+from sanitizer import FeatureSanitizer
 
-    
-    w6 = FeatureSanitizer.sanitize_width("-1")
-    print(f"Test '-1' -> {w6}m")
+
+def test_sanitizer():
+    print("--- Teste ao FeatureSanitizer ---")
+
+    print(f"Teste largura None -> {FeatureSanitizer.sanitize_width(None)} m")
+    print(f"Teste largura ''   -> {FeatureSanitizer.sanitize_width('')} m")
+    print(f"Teste '1.5'        -> {FeatureSanitizer.sanitize_width('1.5')} m")
+    print(f"Teste '2,5'        -> {FeatureSanitizer.sanitize_width('2,5')} m")
+    print(f"Teste '1.2m'       -> {FeatureSanitizer.sanitize_width('1.2m')} m")
+    print(f"Teste '-1'         -> {FeatureSanitizer.sanitize_width('-1')} m")
+
 
 def test_models():
-    print("\n--- Testing Pydantic Models ---")
-    
+    print("\n--- Teste aos modelos Pydantic ---")
+
     try:
         profile = UserProfile(
             profile_name="wheelchair",
             max_incline=0.08,
             min_width=1.2,
             avoid_stairs=True,
-            surface_preference=["paved", "asphalt"]
+            surface_preference=["paved", "asphalt"],
         )
-        print("Valid UserProfile created successfully:")
+        print("UserProfile válido:")
         print(profile.model_dump_json(indent=2))
-        
+
         request = RouteRequest(
             start_coords=(41.2954, -7.7451),
             end_coords=(41.2982, -7.7420),
-            profile=profile
+            profile=profile,
         )
-        print("Valid RouteRequest created successfully.")
+        print("RouteRequest válido aceite.")
     except ValidationError as e:
-        print("Unexpected validation error:", e)
-        
+        print("Erro de validação inesperado:", e)
+
     try:
-        print("\nAttempting to create invalid profile (string for incline)...")
-        
-        
+        print("\nA tentar criar um perfil inválido (string em max_incline)...")
         UserProfile(
             profile_name="wheelchair",
-            max_incline="not_a_number", 
+            max_incline="not_a_number",
             min_width=1.2,
             avoid_stairs=True,
-            surface_preference=[]
+            surface_preference=[],
         )
     except ValidationError as e:
-        print("Successfully caught ValidationError:")
+        print("Erro de validação apanhado, como esperado:")
         print(e)
-        
+
+
 if __name__ == "__main__":
     test_sanitizer()
     test_models()

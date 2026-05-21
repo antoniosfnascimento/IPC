@@ -5,3 +5,4 @@ osmnx
 networkx
 geopandas
 scikit-learn
+requests
