@@ -1,16 +1,16 @@
-# Dicionário de Dados: Perfis de Utilizador e Restrições Físicas
+# Data Dictionary: User Profiles and Physical Constraints
 
-Esta tabela especifica as "Hard Constraints" (constantes matemáticas e booleanas baseadas em manuais de acessibilidade universal) que o Motor Geoespacial vai aplicar a cada aresta do grafo OSM, dependendo do perfil escolhido. Estes parâmetros balizam a Heurística de Penalização de Dijkstra.
+This table specifies the *hard constraints* (mathematical and boolean constants based on universal accessibility manuals) that the geospatial engine applies to every edge of the OSM graph depending on the chosen profile. These parameters tune the Bellman-Ford penalty heuristic.
 
-| Perfil de Utilizador | Limitação Base | Inclinação Máxima (`max_incline`) | Largura Mínima (`min_width`) | Escadas/Degraus (`avoid_stairs`) | Superfícies Preferenciais (`surface_preference`) | Fator Multiplicador (Esforço) | Justificação Técnica |
+| User profile | Base limitation | Max slope (`max_incline`) | Min width (`min_width`) | Stairs (`avoid_stairs`) | Preferred surfaces (`surface_preference`) | Effort multiplier | Technical justification |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Cadeira de Rodas** | Motores/Rodados | $8\%$ ($0.08$) | $1.20m$ | `True` | `paved`, `asphalt`, `concrete`, `paving_stones` | x15 em inclinações > 5% | Restrição W3C para rampas e obrigatório evitar piso não consolidado (`gravel`, `dirt`) devido ao atrito. |
-| **Mobilidade Reduzida** (Andarilho/Muletas) | Instabilidade/Esforço | $10\%$ ($0.10$) | $0.90m$ | `True` | `paved`, `asphalt`, `concrete`, `compacted` | x10 em inclinações > 8% | Menor tolerância a distâncias, mas passagem viável por larguras inferiores a cadeiras de rodas. |
-| **Idoso** | Fadiga/Cardíaco | $12\%$ ($0.12$) | $0.80m$ | `False` (mas evitar se > 5 degraus) | `paved`, `asphalt`, `concrete` | x20 em escadas, x5 em subidas longas | Maior foco na exaustão física em subidas do que em largura da via. Degraus são possíveis, mas fortemente penalizados. |
-| **Carrinho de Bebé** | Rodados Pequenos/Vibração | $15\%$ ($0.15$) | $0.90m$ | `True` | `paved`, `asphalt`, `concrete` | x5 em buracos (`cobblestone`) | Menor restrição cardíaca que "Idoso", mas forte aversão a pisos vibro-acústicos (empedrado/paralelos de Vila Real) por conforto do bebé. |
-| **Invisibilidade/Baixa Visão** | Referências Táteis | $20\%$ ($0.20$) | $0.90m$ | `False` | Qualquer | N/A | Foco não está no esforço, mas na necessidade de evitar passeios rebaixados não nivelados (ou uso de pavimento tátil). |
-| **Focado na Distância** (Standard) | Nenhuma | $30\%$ ($0.30$) | $0.50m$ | `False` | Qualquer | x1 | Usa exatamente a métrica de "Distância Mais Curta" pura do Dijkstra sem penalizações de hardware/esforço. |
+| **Wheelchair** | Motor / wheeled | 8% (0.08) | 1.20 m | `True` | `paved`, `asphalt`, `concrete`, `paving_stones` | ×15 on slopes > 5% | W3C ramp guideline and mandatory avoidance of loose ground (`gravel`, `dirt`) due to friction. |
+| **Reduced mobility** (walker/crutches) | Instability / effort | 10% (0.10) | 0.90 m | `True` | `paved`, `asphalt`, `concrete`, `compacted` | ×10 on slopes > 8% | Lower tolerance to distance, but can fit through narrower paths than a wheelchair. |
+| **Senior** | Fatigue / cardiac | 12% (0.12) | 0.80 m | `False` (but avoid if > 5 steps) | `paved`, `asphalt`, `concrete` | ×20 on stairs, ×5 on long climbs | Greater focus on physical exhaustion on climbs than on path width. Stairs are possible but heavily penalised. |
+| **Stroller** | Small wheels / vibration | 15% (0.15) | 0.90 m | `True` | `paved`, `asphalt`, `concrete` | ×5 on potholes (`cobblestone`) | Lower cardiac restriction than "Senior", but strong aversion to vibrating floors (the cobblestone of Vila Real) for the baby's comfort. |
+| **Low vision** | Tactile references | 20% (0.20) | 0.90 m | `False` | Any | N/A | Focus is not on effort but on avoiding non-levelled lowered curbs (or using tactile paving). |
+| **Distance-focused** (standard) | None | 30% (0.30) | 0.50 m | `False` | Any | ×1 | Uses pure shortest-distance Bellman-Ford with no hardware / effort penalty. |
 
-**Notas de Engenharia (Backend `router.py`):**
-*   **Declive (`incline`):** No OSM, o valor de `incline` é frequentemente armazenado com o sinal de descida (`-5%`) ou subida (`5%`) dependendo do sentido da via (direção da aresta [u, v]). O motor usa a função `abs()` (valor absoluto) para aplicar a restrição de fadiga, independentemente da direção no grafo para simplificação.
-*   **Largura (`width`):** Ruas em Portugal (especialmente centros históricos como Vila Real) muitas vezes **não** têm a tag `width` preenchida no OSM. Se tentar filtrar em demasia, o grafo pode "partir-se" não gerando rotas possíveis, resultando num Erro HTTP 424. Uma solução técnica é colocar um *fallback*: se `width == None`, assumir um valor de default (ex: $1.0m$) com base no tipo de rodovia (`footway` = $1.0m$, `residential` = $1.5m$).
+**Engineering notes (`router.py`):**
+*   **Slope (`incline`):** In OSM, the `incline` value is often stored with the downhill sign (`-5%`) or uphill sign (`5%`) depending on the edge direction. The engine uses `abs()` so the fatigue constraint applies regardless of direction. Since the OSM `incline` tag is sparse in Vila Real, the engine falls back to a per-edge grade computed from the OpenTopoData elevation API (EU-DEM 25 m dataset).
+*   **Width (`width`):** Streets in Portugal (especially historical centres such as Vila Real) often *do not* have the `width` tag set in OSM. Filtering too strictly breaks the graph and yields HTTP 424. The fallback is to assume 0.5 m for missing values and rely on the multiplier to push routing towards taggeable streets.

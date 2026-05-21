@@ -1,33 +1,39 @@
-🗺️ Especificação Técnica e Arquitetura: CityFlow Inclusivo
-Versão: 1.1 (Full Specification)
-Documento de Referência: Bíblia do Projeto (MVP)
-Paradigma: Navegação Urbana Centrada na Acessibilidade (Micro-Routing)
-1. INTRODUÇÃO E LOGLINE
-O CityFlow Inclusivo é uma plataforma de navegação urbana que rompe com o modelo de "Caminho Mais Curto" (Distância) em favor do "Caminho Mais Viável" (Acessibilidade). O sistema mapeia barreiras arquitetónicas invisíveis para algoritmos comuns, transformando limitações físicas em parâmetros de custo matemático.
-2. ANÁLISE DE DECISÕES TECNOLÓGICAS (Justificação de Stack)
-2.1. Porquê Python (FastAPI) e não ASP.NET MVC?
-Embora o grupo tenha proficiência em C#, a escolha recaiu sobre Python por:
-Ecossistema Geoespacial: Bibliotecas como OSMnx e GeoPandas são wrappers de bibliotecas C++ de alta performance (GDAL, PROJ, GEOS) com décadas de maturidade. Em .NET, a integração com estas ferramentas exigiria camadas complexas de interop ou bibliotecas menos maduras (ex: NetTopologySuite).
-Abstração de Grafos: O NetworkX permite manipulação de grafos em tempo real com uma sintaxe muito próxima da linguagem natural, facilitando a implementação de heurísticas de penalização customizadas.
-Performance no MVP: O FastAPI (baseado em Starlette e Pydantic) oferece uma performance de I/O superior, sendo ideal para um serviço que processa grandes volumes de dados geográficos em RAM.
-2.2. Fonte de Dados: OpenStreetMap (OSM) vs Google Maps API
-Decisão: OpenStreetMap (OSM).
-Justificação: O Google Maps fornece o caminho, mas não o Grafo Raw. No CityFlow, precisamos de manipular cada aresta (rua) individualmente para injetar pesos. O OSM permite descarregar a estrutura óssea da cidade (tags de superfície, largura, escadas), algo que o Google mantém sob propriedade intelectual fechada e custo elevado por request.
-3. REQUISITOS DO SISTEMA
-3.1. Requisitos Funcionais (RF)
-RF-01 (Gestão de Perfis): O sistema deve suportar múltiplos perfis (Cadeira de Rodas, Ciclista, Idoso) com variáveis ajustáveis.
-RF-02 (Motor de Pesos): O sistema deve aplicar penalizações dinâmicas baseadas nas tags: highway=steps, incline, surface e width.
-RF-03 (Roteamento): Deve calcular a rota ótima baseada no custom_weight e não apenas na distância física.
-RF-04 (Persistência): O sistema deve manter uma cache local dos mapas para garantir rapidez em arranques subsequentes.
-3.2. Requisitos Não Funcionais (RNF)
-RNF-01 (Portabilidade): O projeto deve ser executável em Windows e macOS com um único comando (Single Source of Truth).
-RNF-02 (Robustez de Dados): O sistema deve tratar dados "sujos" (ex: strings em vez de floats nas tags de largura do OSM).
-RNF-03 (Tempo de Resposta): O cálculo de rota num raio de 1.5km não deve exceder 2 segundos após o carregamento do mapa.
-4. MODELO DE DADOS (Arquitetura de Grafos)
-Diferente de um sistema CRUD tradicional (SQL), a nossa "Base de Dados" é um Grafo Geospacial Esparso.
-4.1. Entidades de Domínio (Diagrama de Classes)
-code
-Mermaid
+CityFlow Inclusive — Technical Specification and Architecture
+Version: 1.2 (real elevation enrichment + walkable snap-point)
+Reference: Project bible (MVP)
+Paradigm: Accessibility-centred urban navigation (micro-routing)
+
+1. INTRODUCTION AND LOGLINE
+CityFlow Inclusive is an urban navigation platform that breaks with the "shortest path" model in favour of the "most viable path". The system maps architectural barriers that are invisible to common algorithms, turning physical limitations into mathematical cost parameters.
+
+2. TECHNOLOGY DECISIONS (Stack justification)
+2.1. Why Python (FastAPI) instead of ASP.NET MVC?
+Although the team is fluent in C#, the choice fell on Python because of:
+- Geospatial ecosystem: OSMnx and GeoPandas wrap mature C++ libraries (GDAL, PROJ, GEOS). On .NET the integration with these tools needs heavy interop layers or less mature libraries.
+- Graph abstraction: NetworkX allows real-time graph manipulation with a near-natural syntax, simplifying custom penalty heuristics.
+- MVP performance: FastAPI (Starlette + Pydantic) offers great I/O performance, ideal for a service that processes large volumes of geographic data in RAM.
+
+2.2. Data source: OpenStreetMap (OSM) vs Google Maps API
+Decision: OpenStreetMap (OSM).
+Justification: Google Maps gives the path but not the raw graph. CityFlow needs to manipulate every edge to inject weights. OSM lets us download the bare skeleton of the city (surface, width, stairs tags), something Google keeps closed and expensive per request.
+
+3. SYSTEM REQUIREMENTS
+3.1. Functional requirements (FR)
+- FR-01 (Profile management): supports multiple profiles (Wheelchair, Cyclist, Senior) with adjustable variables.
+- FR-02 (Weighting engine): applies dynamic penalties based on `highway=steps`, `incline`, `surface` and `width`.
+- FR-03 (Routing): computes the optimal route based on `custom_weight`, not raw distance.
+- FR-04 (Persistence): keeps a local map cache for fast subsequent startups.
+
+3.2. Non-functional requirements (NFR)
+- NFR-01 (Portability): the project must run on Windows and macOS with a single command (single source of truth).
+- NFR-02 (Data robustness): the system must handle dirty data (e.g. strings in OSM numeric tags).
+- NFR-03 (Response time): a route within a 1.5 km radius must not exceed 2 seconds after the map is loaded.
+- NFR-04 (Realistic slope): when OSM `incline` tags are sparse, the system must derive a per-edge slope from an external elevation source.
+
+4. DATA MODEL (Graph architecture)
+Unlike a typical SQL CRUD system, the "database" is a sparse geospatial graph.
+
+4.1. Domain entities (class diagram)
 classDiagram
     class UserProfile {
         +String profile_name
@@ -42,6 +48,8 @@ classDiagram
         -Float center_lat
         -Float center_lon
         +load_map_segment(radius)
+        +annotate_graph_with_elevation()
+        +snap_point(coords)
         +calculate_route(start, end, profile)
     }
 
@@ -50,204 +58,66 @@ classDiagram
         +String highway
         +String surface
         +String incline
+        +Float grade_abs
         +String width
         +Float custom_weight
     }
 
-    MapEngine "1" *-- "many" EdgeData : processa
-    MapEngine ..> UserProfile : utiliza filtros
-4.2. Fluxo de Dados e Persistência
-Ingestão: O OSMnx comunica com a API Overpass via HTTP.
-Serialização: O grafo é guardado em formato GraphML na pasta /data/osm_cache.
-Processamento: Durante a execução, o grafo é elevado para a memória RAM (objeto NetworkX.MultiDiGraph).
-5. A LÓGICA DO MOTOR (Core Routing Logic)
-O diferencial competitivo do CityFlow é o Algoritmo de Pesos Dinâmicos.
-5.1. Função de Penalização (Heurística)
-Para cada aresta (
-e
-e
-), o custo (
-W
-W
-) é definido por:
-W
-(
-e
-)
-=
-L
-e
-n
-g
-t
-h
-(
-e
-)
-×
-P
-e
-n
-a
-l
-t
-y
-t
-o
-t
-a
-l
-W(e)=Length(e)×Penalty 
-total
-​
- 
-Onde 
-P
-e
-n
-a
-l
-t
-y
-t
-o
-t
-a
-l
-Penalty 
-total
-​
- 
- é o produto das restrições:
-Filtro Binário (Escadas): Se avoid_stairs AND highway == steps 
-→
-→
- 
-P
-e
-n
-a
-l
-t
-y
-=
-1000
-Penalty=1000
- (Caminho morto).
-Filtro de Superfície: Se surface NOT IN surface_preference 
-→
-→
- 
-P
-e
-n
-a
-l
-t
-y
-×
-3
-Penalty×3
-.
-Filtro de Inclinação: Se 
-A
-B
-S
-(
-i
-n
-c
-l
-i
-n
-e
-)
->
-m
-a
-x
-_
-i
-n
-c
-l
-i
-n
-e
-ABS(incline)>max_incline
- 
-→
-→
- 
-P
-e
-n
-a
-l
-t
-y
-×
-15
-Penalty×15
-.
-Filtro de Largura: Se 
-w
-i
-d
-t
-h
-<
-m
-i
-n
-_
-w
-i
-d
-t
-h
-width<min_width
- 
-→
-→
- 
-P
-e
-n
-a
-l
-t
-y
-×
-5
-Penalty×5
-.
-5.2. Limpeza de Dados (Robust Parsing)
-O sistema implementa uma camada de Regex Parsing para converter dados humanos do OSM (ex: "1.5m", "narrow", "5%") em valores flutuantes computáveis, evitando erros de tipo (TypeError) em tempo de execução.
-6. IMPLEMENTAÇÃO E DEPLOYMENT (Manual do Desenvolvedor)
-6.1. Orquestração de Ambiente (run_backend.py)
-Para garantir que um estagiário ou docente consiga correr o projeto sem configurar o Python manualmente, o script de arranque executa:
-Self-Correction: Deteta o SO e localiza os binários corretos.
-Bootstrap: Cria o venv e instala o pip mais recente.
-Dependency Locking: Instala as versões do requirements.txt.
-Auto-Reload: Inicia o uvicorn com --reload para permitir desenvolvimento "live code".
-6.2. Estrutura de Ficheiros do Projeto
-code
-Text
-cityflow_inclusivo/
-├── run_backend.py        # Orquestrador Root (Entry Point)
+    MapEngine "1" *-- "many" EdgeData
+    MapEngine ..> UserProfile
+
+4.2. Data flow and persistence
+- Ingestion: OSMnx talks to the Overpass API over HTTP.
+- Serialisation: the graph is stored as GraphML in `/data/osm_cache`.
+- Elevation enrichment: on startup the engine queries OpenTopoData (EU-DEM 25 m) for every node and stores per-edge grades.
+- Processing: at runtime the graph is loaded into RAM (NetworkX MultiDiGraph).
+
+5. ROUTING ENGINE (Core logic)
+The CityFlow differentiator is the dynamic weighting algorithm.
+
+5.1. Penalty function (heuristic)
+For every edge (e), the cost (W) is:
+    W(e) = Length(e) × Penalty_total
+
+Where Penalty_total is the product of the constraints:
+- Binary filter (stairs): if avoid_stairs AND highway == steps → Penalty = 10000
+- Surface filter: if surface NOT IN surface_preference → Penalty × 3.5
+- Slope filter: if ABS(grade) > max_incline → Penalty × 15
+- Slope soft filter: if ABS(grade) > max_incline × 0.75 → Penalty × 3
+- Width filter: if width < min_width → Penalty × 5
+
+5.2. Data cleansing (robust parsing)
+The system applies a regex parsing layer to convert OSM human strings ("1.5m", "narrow", "5%") into computable floats, avoiding runtime TypeErrors.
+
+5.3. Real elevation enrichment
+On startup the engine queries OpenTopoData (free, no API key, EU-DEM 25 m dataset) for every node, derives `grade_abs` per edge, caps it at 25% and smooths short edges so that DEM noise does not produce false steep slopes.
+
+6. IMPLEMENTATION AND DEPLOYMENT
+6.1. Environment orchestration (start.sh / start.ps1)
+To guarantee that an intern or faculty member can run the project without configuring Python manually, the startup script:
+- Detects the OS and locates the right binaries.
+- Bootstraps the venv and upgrades pip.
+- Installs the requirements.
+- Starts uvicorn with `--reload` and the Vite dev server.
+
+6.2. File layout
+cityflow_inclusive/
+├── start.sh / start.ps1   # Entry point
 ├── backend/
-│   ├── main.py           # API Endpoints (FastAPI)
-│   ├── requirements.txt  # Lista de dependências científicas
-│   ├── data/osm_cache/   # Armazenamento persistente de Vila Real
+│   ├── main.py            # FastAPI endpoints
+│   ├── requirements.txt   # Scientific dependencies
+│   ├── data/osm_cache/    # Vila Real persistent storage
 │   └── engine/
-│       ├── models.py     # Contratos Pydantic (User Profiles)
-│       └── router.py     # Motor Matemático (NetworkX Logic)
-└── frontend/             # [Fase 2] React + Leaflet
-7. ESTRATÉGIA DE TESTES (Quality Assurance)
-Para garantir que o backend é sólido, o sistema deve passar por três níveis de validação no Dashboard de Developer (/docs):
-Teste de Limite (Boundary): Introduzir coordenadas fora do raio de Vila Real. O sistema deve devolver Erro 400 amigável em vez de crashar.
-Teste de Perfil Extremo: Definir max_incline: 0.1. O motor deve encontrar a rota mais plana da cidade, mesmo que seja 500% mais longa.
-Teste de Dados Sujos: Simular pedidos com strings inválidas nos campos numéricos. O Pydantic deve barrar o pedido antes de chegar ao motor.
-8. CONCLUSÃO
-A arquitetura do CityFlow Inclusivo foi desenhada para ser extensível. No futuro, a adição de novos sensores (ex: qualidade do ar, ruído, iluminação) exige apenas a adição de novas regras de penalização no router.py, mantendo a integridade de todo o sistema de navegação anterior.
+│       ├── models.py      # Pydantic contracts
+│       ├── elevation.py   # OpenTopoData enrichment
+│       └── router.py      # NetworkX routing logic
+└── frontend/              # React + Leaflet
+
+7. TEST STRATEGY (Quality assurance)
+The backend must pass three levels of validation in the developer dashboard (/docs):
+- Boundary test: pass coordinates outside the radius. The system must return a friendly 400 instead of crashing.
+- Extreme profile test: set max_incline: 0.02. The engine must find the flattest route in the city, even if 500% longer.
+- Dirty data test: send requests with invalid strings on numeric fields. Pydantic blocks the request before it reaches the engine.
+
+8. CONCLUSION
+The architecture was designed to be extensible. Adding new sensors (air quality, noise, lighting) in the future only requires new penalty rules in router.py, keeping the entire upstream navigation flow intact.

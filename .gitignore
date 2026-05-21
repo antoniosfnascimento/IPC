@@ -5,3 +5,8 @@ __pycache__/
 .vite/
 data/osm_cache/
 .DS_Store
+.vs/
+.idea/
+.claude/
+*.pyc
+dist/
