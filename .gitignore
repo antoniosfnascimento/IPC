@@ -13,3 +13,5 @@ backend/cache/
 .claude/
 *.pyc
 dist/
+.backend.log
+.backend.pid
