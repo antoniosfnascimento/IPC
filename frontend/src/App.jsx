@@ -5,7 +5,7 @@ import axios from 'axios';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 // Lista de fallback usada apenas se o endpoint /cities não responder no primeiro arranque.
 const FALLBACK_CITIES = [

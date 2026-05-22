@@ -1,4 +1,5 @@
 import logging
+from threading import Thread
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,9 +40,19 @@ def _resolve_router(slug: str | None) -> CityFlowRouter:
 
 @app.on_event("startup")
 def warmup_graphs():
-    for slug, router in routers.items():
-        log.info("A pré-aquecer o router para a cidade '%s'...", slug)
-        router.load_graph()
+    default_router = routers[DEFAULT_CITY]
+    log.info("A pré-aquecer o router da cidade predefinida '%s'...", DEFAULT_CITY)
+    default_router.load_graph()
+
+    def warm_remaining() -> None:
+        for slug, router in routers.items():
+            if slug == DEFAULT_CITY:
+                continue
+            log.info("A pré-aquecer em segundo plano o router para a cidade '%s'...", slug)
+            router.load_graph()
+
+    if len(routers) > 1:
+        Thread(target=warm_remaining, daemon=True).start()
 
 
 @app.get("/")
