@@ -1,4 +1,4 @@
-# Adicionar node ao PATH da sessão atual se necessário, para que a execução do script não falhe
+﻿# Adicionar node ao PATH da sessão atual se necessário, para que a execução do script não falhe
 $nodePath = "C:\Program Files\nodejs"
 if (Test-Path $nodePath) {
     if ($env:PATH -notmatch [regex]::Escape($nodePath)) {

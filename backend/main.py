@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from models import RouteRequest
+from models import RouteRequest, SnapPointRequest
 from engine.router import CityFlowRouter
 
 app = FastAPI(title="CityFlow Inclusivo API", version="1.1")
@@ -45,4 +45,21 @@ def calculate_route(request: RouteRequest):
         "route_geometry": route_coords,
         "distance_meters": distance,
         "max_route_incline": max_route_incline
+    }
+
+
+@app.post("/api/v1/snap-point")
+def snap_point(request: SnapPointRequest):
+    result = city_router.snap_point(request.coords)
+
+    if not result["valid"]:
+        raise HTTPException(
+            status_code=422,
+            detail=result["message"]
+        )
+
+    return {
+        "status": "success",
+        "snapped_coords": result["snapped_coords"],
+        "distance_meters": result["distance_meters"]
     }

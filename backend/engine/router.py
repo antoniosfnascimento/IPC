@@ -8,7 +8,7 @@ from models import UserProfile, RouteRequest
 from sanitizer import FeatureSanitizer
 
 class CityFlowRouter:
-    def __init__(self, center_coords=(41.296, -7.746), radius=1500):
+    def __init__(self, center_coords=(41.296, -7.746), radius=5000):
         self.center_coords = center_coords
         self.radius = radius
         
@@ -19,10 +19,60 @@ class CityFlowRouter:
 
     def load_graph(self):
         print(f"A carregar o grafo OSM (centro: {self.center_coords}, raio: {self.radius}m)...")
-        
-        
+
         self.G = ox.graph_from_point(self.center_coords, dist=self.radius, network_type='walk')
-        print("Grafo carregado com sucesso.")
+
+        # Remover arestas de estradas proibidas (IPs, ICs, autoestradas residuais)
+        # O filtro 'walk' do OSMnx ja exclui motorway/motorway_link,
+        # mas trunk/trunk_link (IPs e ICs em Portugal) continuam incluidos.
+        EXCLUDED_HIGHWAY_TYPES = {'trunk', 'trunk_link'}
+
+        edges_to_remove = []
+        for u, v, k, data in self.G.edges(keys=True, data=True):
+            highway = data.get('highway', '')
+            if isinstance(highway, list):
+                highway_set = set(highway)
+            else:
+                highway_set = {highway}
+            if highway_set & EXCLUDED_HIGHWAY_TYPES:
+                edges_to_remove.append((u, v, k))
+
+        self.G.remove_edges_from(edges_to_remove)
+        print(f"Removidas {len(edges_to_remove)} arestas de estradas proibidas (trunk/trunk_link).")
+
+        # Remover nos isolados (nos que ficaram sem arestas apos filtragem)
+        isolated = list(nx.isolates(self.G))
+        self.G.remove_nodes_from(isolated)
+        print(f"Removidos {len(isolated)} nos isolados apos filtragem.")
+
+        print("Grafo carregado e filtrado com sucesso.")
+
+    def snap_point(self, coords: tuple) -> dict:
+        """Faz snap de coordenadas para o no valido mais proximo no grafo filtrado."""
+        if self.G is None:
+            self.load_graph()
+
+        MAX_SNAP_DISTANCE = 150  # metros
+
+        node_id, dist = ox.distance.nearest_nodes(
+            self.G, X=coords[1], Y=coords[0], return_dist=True
+        )
+
+        if dist > MAX_SNAP_DISTANCE:
+            return {
+                "valid": False,
+                "snapped_coords": None,
+                "distance_meters": dist,
+                "message": f"Ponto demasiado longe da rede pedonal ({dist:.0f}m). Clique mais perto de uma rua acessivel."
+            }
+
+        node_data = self.G.nodes[node_id]
+        return {
+            "valid": True,
+            "snapped_coords": (node_data['y'], node_data['x']),
+            "distance_meters": dist,
+            "message": None
+        }
 
     def _calculate_edge_weight(self, u, v, data, profile: UserProfile) -> float:
         
@@ -106,8 +156,9 @@ class CityFlowRouter:
             
             total_distance = 0.0
             max_route_incline = 0.0
-            route_coords = [request.start_coords]
-            
+            route_coords = []
+
+            # Iniciar com as coordenadas do primeiro no do grafo (nao as coords raw do clique)
             if route_nodes:
                 first_node_data = self.G.nodes[route_nodes[0]]
                 route_coords.append((first_node_data['y'], first_node_data['x']))
@@ -152,9 +203,8 @@ class CityFlowRouter:
                 else:
                     node_data = self.G.nodes[v_node]
                     route_coords.append((node_data['y'], node_data['x']))
-            
-            route_coords.append(request.end_coords)
-            
+
+            # Nao adicionar request.end_coords — o ultimo no ja foi incluido pelo loop
             return route_coords, total_distance, max_route_incline
             
         except nx.NetworkXNoPath:

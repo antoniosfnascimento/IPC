@@ -1,4 +1,4 @@
-# Adicionar node ao PATH da sessão atual se necessário, para que a execução do script não falhe
+﻿# Adicionar node ao PATH da sessão atual se necessário, para que a execução do script não falhe
 $nodePath = "C:\Program Files\nodejs"
 if (Test-Path $nodePath) {
     if ($env:PATH -notmatch [regex]::Escape($nodePath)) {
@@ -6,9 +6,16 @@ if (Test-Path $nodePath) {
     }
 }
 
+# Verificar Python (pode ser "py" ou "python")
+$pythonCmd = "python"
 if (-not (Get-Command "python" -ErrorAction SilentlyContinue)) {
-    Write-Error "O Python não está instalado ou configurado no PATH."
-    exit 1
+    if (Get-Command "py" -ErrorAction SilentlyContinue) {
+        $pythonCmd = "py"
+    } else {
+        Write-Error "O Python não está instalado, não está configurado no PATH, ou é um App Alias da Microsoft Store."
+        Write-Host "Se tiver instalado via Microsoft Store, certifique-se de não estar a usar o atalho defeituoso (App Execution Alias)."
+        exit 1
+    }
 }
 
 # Usar npm.cmd para evitar problemas com Execution Policies que bloqueiam ficheiros .ps1
