@@ -1,6 +1,6 @@
-fastapi
-pydantic
-uvicorn
+fastapi==0.110.0
+pydantic==2.13.0
+uvicorn==0.28.0
 osmnx
 networkx
 geopandas
