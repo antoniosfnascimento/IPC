@@ -6,6 +6,15 @@
 
 Este documento define a arquitetura técnica, modelos de dados, diagramas UML, contratos de API e lógica algorítmica necessários para implementar o MVP do CityFlow Inclusivo. O motor passou a suportar mais do que uma cidade em simultâneo — ver `Multi_City_Viability_Report.md` para a justificação por dados da escolha das cidades suportadas.
 
+## Histórico de versões
+
+| Versão | Conteúdo |
+| :--- | :--- |
+| **1.0** | Esqueleto inicial — motor de rotas com pesos customizados em Vila Real, sanitizer defensivo. |
+| **1.1** | Interface React + Leaflet com sliders e *toggle*, integração com o motor. |
+| **1.2** | Enriquecimento real de elevação via OpenTopoData EU-DEM 25 m. *Snap-point* pedonal com filtragem por tipo de via (raio 250 m). Documentação retraduzida para PT-PT. |
+| **1.3** *(atual)* | *Routing* multi-cidade (Vila Real + Paris) com endpoint `GET /api/v1/cities`, dropdown estilizado no frontend, cache persistente de elevação em disco e correção de *stale closure* no handler de cliques do mapa. Scripts de arranque robustos para Windows (.bat + .ps1) e macOS (.sh) com instalação automática de dependências. |
+
 ---
 
 ## 1. Arquitetura do sistema
@@ -34,7 +43,7 @@ graph TD
 
 ## 2. Modelação de dados
 
-O estado é mantido na rede viária do OSM e nos parâmetros de sessão submetidos pelo cliente, mais *blocked edges* para suportar a funcionalidade de *crowdsourcing*.
+O estado é mantido na rede viária do OSM e nos parâmetros de sessão submetidos pelo cliente, mais *blocked edges* para suportar a funcionalidade de *crowdsourcing* (planeada).
 
 ### Diagrama de classes (motor backend)
 ```mermaid
@@ -49,13 +58,20 @@ classDiagram
         +validate() Boolean
     }
 
+    class CityConfig {
+        +String slug
+        +String display_name
+        +Tuple~Float, Float~ center
+        +Integer radius_meters
+    }
+
     class MapEngine {
         -MultiDiGraph G
         -Tuple~Float, Float~ center_point
         -Integer config_radius_mts
+        -String cache_key
         -List~Tuple~ blocked_edges
-        +load_graph_from_cache(String path)
-        +fetch_graph_from_osm()
+        +load_graph()
         +annotate_graph_with_elevation()
         +report_barrier(Tuple coords) Boolean
         +get_route(Tuple start, Tuple end, UserProfile profile) List~Tuple~
@@ -86,6 +102,7 @@ classDiagram
     MapEngine "1" *-- "many" EdgeData
     MapEngine ..> UserProfile
     MapEngine ..> FeatureSanitizer
+    MapEngine ..> CityConfig
 ```
 
 ### Atributos das arestas (dicionário de dados)
@@ -96,7 +113,7 @@ Cada aresta em memória carrega as tags OSM mais os campos derivados da elevaç�
 *   `incline` (string → float): declive original do OSM ("5%", "-2%", "up").
 *   `grade_abs` (float): declive por aresta calculado de `(elev_v − elev_u) / comprimento`, limitado a 0,25 e suavizado em arestas curtas.
 *   `surface` (string): tipo de piso.
-*   `is_blocked` (boolean): flag dinâmica colocada quando um utilizador reporta um obstáculo.
+*   `is_blocked` (boolean, planeado): flag dinâmica colocada quando um utilizador reporta um obstáculo.
 
 ---
 
@@ -129,11 +146,15 @@ O campo `city` é opcional e por defeito é `vila_real`. Valores permitidos: `vi
 ```json
 {
   "status": "success",
+  "city": "vila_real",
   "route_geometry": [[41.2954, -7.7451], [41.2956, -7.7450]],
   "distance_meters": 1250.5,
   "max_route_incline": 0.071
 }
 ```
+
+Códigos de erro:
+*   **424 Failed Dependency:** as restrições não permitem nenhuma rota viável (típico de perfis ultra-restritivos entre dois pontos separados por uma única encosta íngreme).
 
 ### 3.2. `POST /api/v1/snap-point`
 **Objetivo:** projetar uma coordenada de clique sobre a rua pedonal mais próxima, até 250 m.
@@ -145,8 +166,22 @@ O campo `city` é opcional e por defeito é `vila_real`. Valores permitidos: `vi
 
 `city` é opcional e por defeito é `vila_real`.
 
+**Resposta (200 OK):**
+```json
+{
+  "status": "success",
+  "city": "vila_real",
+  "snapped_coords": [41.29603, -7.74428],
+  "distance_meters": 12.4,
+  "adjusted": true
+}
+```
+
+Códigos de erro:
+*   **422 Unprocessable Entity:** o ponto está a mais de 250 m de qualquer aresta pedonal. A mensagem da API inclui a distância para o utilizador perceber a margem.
+
 ### 3.3. `GET /api/v1/cities`
-**Objetivo:** endpoint de descoberta usado pelo *dropdown* do frontend.
+**Objetivo:** *endpoint* de descoberta usado pelo *dropdown* do frontend.
 
 **Resposta:**
 ```json
@@ -160,7 +195,7 @@ O campo `city` é opcional e por defeito é `vila_real`. Valores permitidos: `vi
 ```
 
 ### 3.4. `POST /api/v1/report-barrier` (planeado)
-**Objetivo:** endpoint de *crowdsourcing*. O backend encontra a aresta mais próxima das coordenadas e marca `is_blocked = True`, forçando recálculo.
+**Objetivo:** *endpoint* de *crowdsourcing*. O backend encontra a aresta mais próxima das coordenadas e marca `is_blocked = True`, forçando recálculo.
 
 ---
 
@@ -170,11 +205,11 @@ A função custo do Bellman-Ford multiplica o comprimento de cada aresta pelas p
 
 $$W_e = \text{comprimento}_e \times \prod_{i=1}^{n} \text{penalização}_i$$
 
-**Lógica condicional:**
+**Lógica condicional (versão entregue, simplificada):**
 ```python
 penalty_total = 1.0
 
-# Crowdsourcing
+# Crowdsourcing (planeado)
 if data['is_blocked']:
     penalty_total = 99999.0
 
@@ -191,9 +226,9 @@ grade = data['grade_abs'] or osm_incline_fallback(data['incline'])
 if grade > profile.max_incline:
     penalty_total *= 15.0
 elif grade > profile.max_incline * 0.75:
-    penalty_total *= 3.0
+    penalty_total *= 3.0      # tier suave de aproximação ao limite
 
-# Largura
+# Largura (com fallback defensivo a 0,5 m)
 if data['width'] < profile.min_width:
     penalty_total *= 5.0
 
@@ -204,25 +239,29 @@ W_e = data['length'] * penalty_total
 
 ## 5. Estado e UI no frontend
 
-### State machine de navegação inclusiva
+### State machine de navegação inclusiva (MVP entregue)
 ```mermaid
 stateDiagram-v2
-    [*] --> Idle
-    Idle --> Configuration: (botões grandes)
-    Configuration --> SelectingPoints: perfil ativo
-    SelectingPoints --> FormReady
-    FormReady --> CalculatingRoute: submeter (POST)
-    CalculatingRoute --> RouteDisplayed: sucesso
-    RouteDisplayed --> Navigating: arranque Easy Read
-    Navigating --> BarrierReported: botão "Reportar" pressionado
-    BarrierReported --> CalculatingRoute: re-routing (API)
+    [*] --> CityChosen: arranque carrega /cities
+    CityChosen --> SelectingPoints: clica no mapa
+    SelectingPoints --> FormReady: A e B definidos
+    FormReady --> CalculatingRoute: pressiona "Calcular"
+    CalculatingRoute --> RouteDisplayed: 200 OK
+    CalculatingRoute --> Errored: 424 / network
+    Errored --> SelectingPoints: utilizador reage
+    RouteDisplayed --> SelectingPoints: 3.º clique limpa
+    CityChosen --> CityChosen: troca de cidade
 ```
 
-### Funcionalidades MVP de UI
-1. **Modo Easy Read (carga cognitiva reduzida):** renderização condicional do React. Em vez de um mapa cheio (alta carga visual), o frontend esconde o tile base quando o utilizador escolhe um perfil de limitação cognitiva, mostrando apenas a *polyline* da rota e ícones W3C de curvas sobre fundo de alto contraste.
-2. **Feedback web multimodal:**
-    *   *Web Speech API* para TTS nativo — a app lê as instruções (`window.speechSynthesis.speak()`) em cada nó de manobra.
-    *   *Vibration API* — feedback háptico (`navigator.vibrate(200)`) em interseções complexas para utilizadores com baixa visão.
-3. **Botão grande de ação (*crowdsourcing*):** o botão "Reportar obstáculo" tem pelo menos 44×44 CSS px (W3C touch target), fixo no rodapé (alto z-index) e usa `navigator.geolocation` para reportar a obstrução.
-4. **Integração de contraste dinâmico:** variáveis CSS globais (`:root`) ligadas a um *toggle* JSX, que muda o basemap Leaflet de claro para escuro (CartoDB Dark Matter).
-5. **Toggle de justificação visual:** uma camada opcional que mostra rotas rejeitadas (linhas tracejadas vermelhas reportadas pela API). Evita carga cognitiva permanente preservando transparência algorítmica.
+### Funcionalidades MVP de UI (entregue)
+1.  **Sidebar única e fixa:** *single source of truth* — cidade, perfil, estado da rota e alertas vivem na mesma coluna. Em mobile, transforma-se em *drawer* lateral.
+2.  **Dropdown estilizado de cidade:** componente custom com chip, *chevron* animado, *listbox* acessível por teclado (`Enter`/`Space`/`Esc`), fecha-se com clique fora.
+3.  **Sliders e *toggle*:** controlos diretos sobre `max_incline`, `min_width` e `avoid_stairs`. O efeito é visível na próxima rota calculada.
+4.  **Toasts dentro da sidebar:** informativo (azul) ou de alerta (vermelho), com `role="status"`/`role="alert"` para leitores de ecrã.
+5.  **Painel de métricas:** distância, tempo estimado (ajustado ao perfil), inclinação crítica com *badge* verde/vermelho.
+
+### Funcionalidades planeadas
+1.  **Modo *Easy Read*:** renderização condicional para esconder o tile base e mostrar apenas a *polyline* e ícones W3C de curva.
+2.  **Web Speech API / Vibration API:** TTS e feedback háptico nas manobras.
+3.  **Botão "Reportar obstáculo":** ≥ 44×44 px, fixo no rodapé, integrado com `report-barrier`.
+4.  **Toggle de alto contraste:** muda basemap para CartoDB Dark Matter e força contraste ≥ 7:1.

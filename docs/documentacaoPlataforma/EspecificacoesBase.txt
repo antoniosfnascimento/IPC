@@ -3,37 +3,75 @@ Versão: 1.3 (routing multi-cidade: Vila Real + Paris)
 Referência: Bíblia do projeto (MVP)
 Paradigma: Navegação urbana centrada na acessibilidade (micro-routing)
 
+NOTA SOBRE O DOCUMENTO
+Este é o documento "bíblia" técnico do projeto, com a especificação completa
+da arquitetura, dos modelos e das decisões de stack. Para uma versão com
+diagramas Mermaid renderizados e tabelas Markdown, consultar
+`Especificacao_Desenvolvimento_App.md`.
+
 1. INTRODUÇÃO E LOGLINE
-O CityFlow Inclusivo é uma plataforma de navegação urbana que rompe com o modelo de "caminho mais curto" em favor do "caminho mais viável". O sistema mapeia barreiras arquitetónicas invisíveis para algoritmos comuns, transformando limitações físicas em parâmetros de custo matemático.
+O CityFlow Inclusivo é uma plataforma de navegação urbana que rompe com o
+modelo de "caminho mais curto" em favor do "caminho mais viável". O sistema
+mapeia barreiras arquitetónicas invisíveis para algoritmos comuns,
+transformando limitações físicas em parâmetros de custo matemático.
 
 2. DECISÕES TECNOLÓGICAS (Justificação da stack)
 2.1. Porquê Python (FastAPI) em vez de ASP.NET MVC?
 Apesar do grupo dominar C#, a escolha recaiu sobre Python por:
-- Ecossistema geoespacial: OSMnx e GeoPandas envolvem bibliotecas C++ maduras (GDAL, PROJ, GEOS). Em .NET, a integração com estas ferramentas exigiria interop pesado ou bibliotecas menos maduras.
-- Abstração de grafos: o NetworkX permite manipulação de grafos em tempo real com uma sintaxe quase natural, simplificando heurísticas de penalização custom.
-- Performance no MVP: o FastAPI (Starlette + Pydantic) oferece grande desempenho I/O, ideal para um serviço que processa muitos dados geográficos em RAM.
+- Ecossistema geoespacial: OSMnx e GeoPandas envolvem bibliotecas C++ maduras
+  (GDAL, PROJ, GEOS). Em .NET, a integração com estas ferramentas exigiria
+  interop pesado ou bibliotecas menos maduras.
+- Abstração de grafos: o NetworkX permite manipulação de grafos em tempo real
+  com uma sintaxe quase natural, simplificando heurísticas de penalização
+  custom.
+- Performance no MVP: o FastAPI (Starlette + Pydantic) oferece grande
+  desempenho I/O, ideal para um serviço que processa muitos dados geográficos
+  em RAM.
 
 2.2. Fonte de dados: OpenStreetMap (OSM) vs Google Maps API
 Decisão: OpenStreetMap (OSM).
-Justificação: o Google Maps fornece o caminho mas não o grafo bruto. O CityFlow precisa de manipular cada aresta para injetar pesos. O OSM permite descarregar o esqueleto da cidade (tags de superfície, largura, escadas), algo que o Google mantém fechado e caro por pedido.
+Justificação: o Google Maps fornece o caminho mas não o grafo bruto. O
+CityFlow precisa de manipular cada aresta para injetar pesos. O OSM permite
+descarregar o esqueleto da cidade (tags de superfície, largura, escadas),
+algo que o Google mantém fechado e caro por pedido.
+
+2.3. Fonte de elevação: OpenTopoData EU-DEM 25 m
+Decisão: OpenTopoData (gratuito, sem chave de API).
+Justificação: a tag OSM `incline` cobre <5 % das arestas em Vila Real. Sem
+uma fonte real de declive, qualquer filtro de inclinação degenera para 0 %.
+O EU-DEM 25 m cobre toda a Europa (Vila Real e Paris); para regiões fora,
+faz fallback automático para SRTM 30 m.
 
 3. REQUISITOS DO SISTEMA
-3.1. Requisitos funcionais (RF)
-- RF-01 (Gestão de perfis): suporta múltiplos perfis (cadeira de rodas, ciclista, sénior) com variáveis ajustáveis.
-- RF-02 (Motor de pesos): aplica penalizações dinâmicas baseadas em `highway=steps`, `incline`, `surface` e `width`.
-- RF-03 (Routing): calcula a rota ótima com base no `custom_weight`, não na distância pura.
-- RF-04 (Persistência): mantém uma cache local dos mapas para arranques rápidos.
+3.1. Requisitos funcionais (RF) — versão entregue
+- RF-01 (Gestão de perfis): suporta perfis ajustáveis em runtime via três
+  controlos da sidebar (max_incline, min_width, avoid_stairs).
+- RF-02 (Motor de pesos): aplica penalizações dinâmicas baseadas em
+  `highway=steps`, declive (real, derivado da elevação), `surface` e `width`.
+- RF-03 (Routing): calcula a rota ótima com base no `custom_weight`, não na
+  distância pura, via Bellman-Ford.
+- RF-04 (Persistência): mantém uma cache local OSMnx dos mapas e uma cache
+  persistente JSON das elevações por cidade, para arranques sub-segundo após
+  o primeiro carregamento.
+- RF-05 (Multi-cidade): dropdown de cidade no frontend, router por cidade no
+  backend, endpoint `/api/v1/cities` para descoberta.
 
 3.2. Requisitos não-funcionais (RNF)
-- RNF-01 (Portabilidade): o projeto tem de correr em Windows e macOS com um único comando (*single source of truth*).
-- RNF-02 (Robustez de dados): tem de tolerar dados "sujos" (ex.: strings em campos numéricos do OSM).
-- RNF-03 (Tempo de resposta): uma rota num raio de 1,5 km não pode exceder 2 segundos depois do mapa carregado.
-- RNF-04 (Declive realista): quando as tags OSM `incline` são esparsas, o sistema tem de derivar um declive por aresta a partir de uma fonte externa de elevação.
+- RNF-01 (Portabilidade): o projeto corre em Windows e macOS/Linux com um
+  único comando (start.bat / start.sh).
+- RNF-02 (Robustez de dados): tolera dados "sujos" (strings em campos
+  numéricos do OSM, tags em falta, listas em vez de escalares).
+- RNF-03 (Tempo de resposta): uma rota num raio de 1,5 km não excede 2 s
+  depois do mapa carregado.
+- RNF-04 (Declive realista): quando as tags OSM `incline` são esparsas, o
+  sistema deriva um declive por aresta a partir de uma fonte externa de
+  elevação (EU-DEM 25 m).
 
 4. MODELO DE DADOS (Arquitetura de grafos)
-Ao contrário de um CRUD SQL tradicional, a "base de dados" é um grafo geoespacial esparso.
+Ao contrário de um CRUD SQL tradicional, a "base de dados" é um grafo
+geoespacial esparso.
 
-4.1. Entidades de domínio (diagrama de classes)
+4.1. Entidades de domínio (diagrama de classes simplificado)
 classDiagram
     class UserProfile {
         +String profile_name
@@ -43,11 +81,19 @@ classDiagram
         +List surface_preference
     }
 
+    class CityConfig {
+        +String slug
+        +String display_name
+        +Tuple center
+        +Int radius_meters
+    }
+
     class MapEngine {
         -Graph G (NetworkX)
         -Float center_lat
         -Float center_lon
-        +load_map_segment(radius)
+        -String cache_key
+        +load_graph()
         +annotate_graph_with_elevation()
         +snap_point(coords)
         +calculate_route(start, end, profile)
@@ -65,12 +111,17 @@ classDiagram
 
     MapEngine "1" *-- "many" EdgeData
     MapEngine ..> UserProfile
+    MapEngine ..> CityConfig
 
 4.2. Fluxo e persistência
 - Ingestão: o OSMnx fala com a API Overpass sobre HTTP.
-- Serialização: cada grafo de cidade fica em GraphML em `/data/osm_cache`.
-- Enriquecimento de elevação: no arranque, o motor consulta o OpenTopoData (EU-DEM 25 m) para cada nó de cada cidade suportada e guarda o declive por aresta.
-- Processamento: em runtime, cada grafo de cidade é carregado para RAM como NetworkX MultiDiGraph. A cidade ativa é selecionada por pedido através do campo `city` nos contratos da API.
+- Serialização: cada grafo de cidade fica em GraphML em `/backend/data/osm_cache`.
+- Enriquecimento de elevação: no arranque, o motor lê a cache de elevação
+  em `/backend/data/elevation_cache/<slug>.json`; se um nó não estiver lá,
+  consulta o OpenTopoData (EU-DEM 25 m) e persiste o resultado.
+- Processamento: em runtime, cada grafo de cidade é carregado para RAM como
+  NetworkX MultiDiGraph. A cidade ativa é selecionada por pedido através do
+  campo `city` nos contratos da API.
 
 5. MOTOR DE ROUTING (Lógica central)
 O diferenciador do CityFlow é o algoritmo de pesos dinâmicos.
@@ -80,45 +131,86 @@ Para cada aresta (e), o custo (W) é:
     W(e) = Comprimento(e) × Penalização_total
 
 Onde Penalização_total é o produto das restrições:
-- Filtro binário (escadas): se avoid_stairs AND highway == steps → penalização = 10000
-- Filtro de superfície: se surface NOT IN surface_preference → penalização × 3.5
-- Filtro de declive: se ABS(grade) > max_incline → penalização × 15
-- Filtro de declive suave: se ABS(grade) > max_incline × 0.75 → penalização × 3
-- Filtro de largura: se width < min_width → penalização × 5
+- Filtro binário (escadas): se avoid_stairs AND highway == steps
+  → penalização ×= 10000
+- Filtro de superfície: se surface ≠ "unknown" e NOT IN surface_preference
+  → penalização ×= 3.5
+- Filtro de declive (limite excedido): se ABS(grade) > max_incline
+  → penalização ×= 15
+- Filtro de declive (tier suave): se ABS(grade) > max_incline × 0.75
+  → penalização ×= 3
+- Filtro de largura: se width < min_width
+  → penalização ×= 5
+- Filtro de crowdsourcing (planeado): se is_blocked
+  → penalização = 99999
 
 5.2. Limpeza de dados (parsing robusto)
-O sistema aplica uma camada de parsing por regex para converter strings humanas do OSM ("1.5m", "narrow", "5%") em floats computáveis, evitando TypeErrors em runtime.
+O sistema aplica uma camada de parsing por regex para converter strings
+humanas do OSM ("1.5m", "narrow", "5%") em floats computáveis, evitando
+TypeErrors em runtime.
 
 5.3. Enriquecimento real de elevação
-No arranque, o motor consulta o OpenTopoData (gratuito, sem chave, conjunto EU-DEM 25 m) para cada nó, deriva `grade_abs` por aresta, limita a 25 % e suaviza arestas curtas, para que o ruído do DEM não produza declives falsos.
+No arranque, o motor consulta o OpenTopoData (gratuito, sem chave, conjunto
+EU-DEM 25 m) para cada nó, deriva `grade_abs` por aresta, limita a 25 % e
+suaviza arestas curtas, para que o ruído do DEM não produza declives falsos.
+A cache em disco torna os arranques seguintes praticamente instantâneos.
+Em caso de rate-limit (HTTP 429), o motor faz retry com backoff exponencial.
+
+5.4. Snap-point pedonal
+O motor mantém um sub-grafo dedicado contendo apenas tipos de via "amigáveis
+ao peão" (footway, path, residential, pedestrian, etc.), excluindo motorway
+e trunk. O endpoint `/api/v1/snap-point` projeta qualquer coordenada para o
+nó mais próximo desse sub-grafo, até 250 m. Pontos mais longe geram 422.
 
 6. IMPLEMENTAÇÃO E DEPLOYMENT
-6.1. Orquestração de ambiente (start.sh / start.ps1)
-Para que um estagiário ou docente consiga correr o projeto sem configurar Python manualmente, o script de arranque:
-- Deteta o SO e localiza os binários certos.
-- Inicializa o venv e atualiza o pip.
-- Instala os requirements.
-- Arranca o uvicorn com `--reload` e o servidor de desenvolvimento Vite.
+6.1. Orquestração de ambiente
+Em Windows:
+- start.bat invoca start.ps1 com -ExecutionPolicy Bypass (resolve o problema
+  recorrente da execution policy em máquinas novas).
+- start.ps1 deteta Python e Node; se em falta, instala via winget
+  (Python.Python.3.12 e OpenJS.NodeJS.LTS) e refresca o PATH da sessão.
+- Cria o venv do backend, instala requirements, arranca uvicorn em janela
+  própria, faz `npm install` e arranca o servidor de desenvolvimento Vite.
+
+Em macOS/Linux:
+- start.sh faz o mesmo com Homebrew (macOS) ou apt (Linux Debian/Ubuntu)
+  como motores de instalação. Backend arranca em background com PID em
+  .backend.pid; frontend ocupa o terminal interativo.
 
 6.2. Estrutura de ficheiros
 cityflow_inclusivo/
-├── start.sh / start.ps1   # Entry point
+├── start.bat / stop.bat        # Entry point Windows (usa Bypass na ExecutionPolicy)
+├── start.ps1 / stop.ps1        # Lógica PowerShell (deteta winget, refresca PATH)
+├── start.sh  / stop.sh         # macOS/Linux (deteta brew/apt)
 ├── backend/
-│   ├── main.py            # Endpoints FastAPI
-│   ├── requirements.txt   # Dependências científicas
-│   ├── data/osm_cache/    # Armazenamento persistente por cidade (Vila Real, Paris)
+│   ├── main.py                 # Endpoints FastAPI, registo de routers por cidade
+│   ├── models.py               # Contratos Pydantic
+│   ├── sanitizer.py            # Parsing robusto contra dados sujos do OSM
+│   ├── requirements.txt        # Dependências científicas
+│   ├── data/osm_cache/         # Cache OSMnx por cidade
+│   ├── data/elevation_cache/   # Cache JSON de elevações por cidade
 │   └── engine/
-│       ├── cities.py      # Registo de cidades suportadas
-│       ├── models.py      # Contratos Pydantic
-│       ├── elevation.py   # Enriquecimento OpenTopoData
-│       └── router.py      # Lógica de routing NetworkX
-└── frontend/              # React + Leaflet
+│       ├── cities.py           # Registo de cidades suportadas
+│       ├── elevation.py        # Enriquecimento OpenTopoData + cache em disco
+│       └── router.py           # Lógica de routing NetworkX + Bellman-Ford
+└── frontend/
+    └── src/App.jsx             # Aplicação React (sidebar + Leaflet)
 
 7. ESTRATÉGIA DE TESTES (Qualidade)
-O backend tem de passar três níveis de validação no dashboard de developer (/docs):
-- Teste de limite: passar coordenadas fora do raio. O sistema tem de devolver um 400 amigável em vez de crashar.
-- Teste de perfil extremo: definir max_incline: 0.02. O motor tem de encontrar a rota mais plana, mesmo que seja 500 % mais longa.
-- Teste de dados sujos: pedidos com strings inválidas em campos numéricos. O Pydantic bloqueia o pedido antes de chegar ao motor.
+O backend tem três níveis de validação:
+- Teste de limite (boundary): backend/test_router.py — valida que o motor
+  carrega o grafo e calcula uma rota base sem crashar.
+- Teste de perfil extremo: backend/stress_test_api.py — exercita
+  combinações restritivas e relaxadas, confirmando 200 OK / 424.
+- Teste de integração: backend/integration_validator.py — 10 perfis
+  variados, mostra que os sliders realmente alteram o output.
+- Teste de modelos: backend/test_models.py — valida o sanitizer e a
+  validação Pydantic.
 
 8. CONCLUSÃO
-A arquitetura foi desenhada para ser extensível. Adicionar novos sensores (qualidade do ar, ruído, iluminação) no futuro requer apenas novas regras de penalização em router.py, mantendo o fluxo de navegação a montante intacto.
+A arquitetura foi desenhada para ser extensível. Adicionar novos sensores
+(qualidade do ar, ruído, iluminação) no futuro requer apenas novas regras
+de penalização em router.py. Adicionar uma nova cidade requer uma entrada
+em engine/cities.py. Adicionar novas funcionalidades de UX (alto contraste,
+TTS, crowdsourcing) exige extensão do frontend mas o motor já está
+preparado para receber esses sinais.

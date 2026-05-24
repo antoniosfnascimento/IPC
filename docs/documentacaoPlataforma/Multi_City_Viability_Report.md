@@ -5,7 +5,7 @@ Durante a revisão do projeto, o docente orientador questionou a suposição de 
 
 Este documento apresenta os números **medidos** de densidade de tags OSM usados pelo motor de *routing* do CityFlow num raio de 1,5 km à volta do centro de cada candidata. Assim, a escolha das cidades suportadas fica justificada por dados e não por intuição.
 
-Todos os valores foram recolhidos a 21 de maio de 2026 contra a API Overpass real, através do OSMnx 2.1.0 (`network_type='walk'`, raio = 1500 m). Podem ser reproduzidos pelo snippet incluído no final do documento.
+Todos os valores foram recolhidos a 24 de maio de 2026 contra a API Overpass real, através do OSMnx 2.1.0 (`network_type='walk'`, raio = 1500 m). Podem ser reproduzidos pelo *snippet* incluído no final do documento.
 
 ## Método
 Para cada centro de cidade candidato descarregámos o grafo pedonal e contámos, por aresta, quantas vezes cada tag relevante para acessibilidade está presente:
