@@ -1,19 +1,36 @@
 # Arquitetura de Informação (CityFlow MVP)
 
-Este documento dita a estrutura hierárquica e a organização de conteúdos do frontend do **CityFlow**. A tabela serve de *blueprint* a partir do qual os programadores constroem as vistas (componentes React) e o fluxo de navegação.
+Este documento descreve a estrutura hierárquica e a organização de conteúdos do frontend do **CityFlow**. Serve de *blueprint* para os componentes React e o fluxo de interação.
 
-Para manter o foco no MVP e na usabilidade (carga cognitiva reduzida), a app segue uma arquitetura *single-page* agressiva com modais/gavetas móveis em vez de páginas separadas, garantindo que o mapa nunca sai da visão periférica do utilizador.
+A app é uma *Single-Page Application* agressiva: o mapa nunca desaparece. Em vez de modais flutuantes (planeados na visão original), o MVP entregue consolidou todos os controlos numa **sidebar fixa à esquerda** (em ecrãs `md` e maiores) ou num **drawer móvel** com a mesma estrutura (em ecrãs móveis), garantindo carga cognitiva reduzida e zero saltos de página.
 
-| Nome lógico (ecrã / componente base) | O que mostra / componentes visuais | Ações do utilizador (`onClick`, `onSubmit`) | Navegação (para onde o utilizador transita) |
-| :--- | :--- | :--- | :--- |
-| **`MapView` (pai / Home)** | O componente Leaflet/mapa (100 % do viewport `h-screen w-screen`). Mostra basemaps claros/escuros consoante o perfil. | Pan livre, `zoom-in`, `zoom-out`. | Mantém o utilizador neste ecrã o tempo todo. Aciona os ecrãs filhos listados em baixo. |
-| **`Floating UI Layer`** (z-index acima do mapa) | Botão "centrar GPS", *toggle* "modo escuro / alto contraste", ícone circular de perfil em cima. | Alternar contraste dinâmico; centrar localização. Clicar na foto/ícone de perfil. | Expande modais de perfil ou chama APIs sem sair da página. O ícone de perfil abre o **`ProfileSettingsModal`**. |
-| **`RoutePlannerPanel`** (rodapé flexível) | *Bottom sheet* (gaveta a subir do fundo). Input de origem, input de destino. Botão `[ Calcular rota ]` (44×44 px mín.). | Preencher inputs; acionar "Calcular". `onClick` numa área vazia do mapa injeta a morada reverso-geocoded no campo de destino. | Em submissão, a UI mantém-se, chama o backend, mostra o `LoadingSpinner` (WCAG `aria-live`) e transita o estado para **`ActiveNavigationOverlay`**. |
-| **`ProfileSettingsModal`** (modal focada) | Botões de rádio (escolha única): "cadeira de rodas", "baixa visão", "sénior". Sliders para *hard constraints*: "largura da via" (0,5 m a 2 m), "inclinação máxima". | Ajustar variáveis da heurística e pressionar `[ Guardar perfil ]`. | Mostra *toast* "perfil aplicado". Fecha o modal automaticamente. O foco regressa ao **`MapView`**. |
-| **`ActiveNavigationOverlay`** (modo de viagem Easy Read) | Esconde todos os inputs de texto. Limita a carga visual a: barra superior alta com a próxima direção ("virar em 50 m") e botão quadrado com a seta da manobra. O botão base vermelho `[ REPORTAR OBSTÁCULO ]` aparece. | Ler a indicação. Seguir a *polyline* grossa. SOS via *Reportar*. | Chegar ao destino devolve ao **`RoutePlannerPanel`** vazio. O botão de reporte dispara o *toast* "a recalcular alternativa" via API de *crowdsourcing*. |
-| **`ErrorFeedbackToast`** (transversal) | Pequeno balão. Amarelo / vermelho consoante a severidade (WCAG). Expressa falhas do Pydantic de forma natural. Ex.: "aviso: sem rota para este perfil (424)". | Dispensar `onClick` ('X'). | Não transita. Auto-dispensa após 3000 ms. |
+## Estrutura entregue no MVP
 
-### Notas de frontend (React.js)
-Dado o âmbito PWA / acessibilidade, os programadores nunca devem usar links `<a href="/definicoes">` planos entre estações. O ecrã do telemóvel não pode piscar nem limpar numa navegação dura.
+| Nome lógico | O que mostra | Ações do utilizador | Estado |
+| :--- | :--- | :--- | :---: |
+| **`MapView`** (área principal) | Componente Leaflet a 100 % do *viewport* livre. Mostra basemap OpenStreetMap, marcadores de partida/destino e *polyline* da rota. | Pan livre, *zoom* dentro do raio de cobertura, clicar para definir A/B (1.º clique = partida, 2.º = destino, 3.º limpa a simulação). | ✅ |
+| **Sidebar (desktop)** / **Drawer (mobile)** | Bloco vertical à esquerda em ≥ md (largura ~30 %); em mobile, abre como gaveta pelo botão flutuante "Definições". | Trocar de cidade, ajustar sliders, ativar/desativar escadas, ler estado da rota, ler mensagens de erro. | ✅ |
+| **Bloco "Cidade"** | Dropdown estilizado (componente `CityDropdown`) com chip azul + chevron animado. Lista as cidades suportadas vindas de `GET /api/v1/cities`. | Clica no botão para abrir o *listbox*. Escolhe a cidade — o mapa voa para o novo centro e o estado é limpo. Fecha-se com clique fora ou tecla `Esc`. | ✅ |
+| **Bloco "O Teu Trajeto"** | Estado textual da partida e do destino com ícones. | Apenas leitura — o utilizador interage com o mapa para definir os pontos. | ✅ |
+| **Bloco "O Teu Perfil de Acessibilidade"** | Sliders de inclinação máxima (2 %–15 %) e largura mínima (0,5 m–2,0 m), e *toggle* "Evitar escadas". | Manipular cada controlo — o estado é guardado em memória até nova rota ser pedida. | ✅ |
+| **Bloco "Alertas/Informações"** | Toasts dentro da sidebar: mensagem informativa azul (info de *snap-point*) e alerta vermelho (erros 422/424/rede). Usam `role="status"` e `role="alert"` para leitores de ecrã. | Auto-aparecem; desaparecem ao próximo clique válido. | ✅ |
+| **Rodapé da sidebar** | Botão primário "Calcular rota segura" (44×44 px mínimo, WCAG 2.5.5). Quando há rota, mostra três métricas: distância, tempo estimado, inclinação crítica — com um *badge* verde/vermelho consoante o limite de conforto. | Clicar para acionar o `POST /api/v1/route`. | ✅ |
+| **Toast superior "A validar ponto…"** | Pílula flutuante centrada no topo do mapa enquanto o servidor faz *snap*. | Apenas leitura — desaparece em ~50 ms numa rede normal. | ✅ |
 
-O `MapView` é a raiz permanente (`/`) e todos os painéis deslizam suavemente pelo eixo Z, do fundo do telemóvel para junto do polegar (*Thumb-zone Design*).
+## Componentes planeados (não no MVP)
+
+Estes elementos faziam parte da visão original do CityFlow Inclusivo e ficam no *roadmap*:
+
+| Nome lógico | O que faz | Estado |
+| :--- | :--- | :---: |
+| **`ContrastToggle`** | Floating Action Button no canto que muda o tema para alto contraste (`dark_matter`). | 🔜 |
+| **`ActiveNavigationOverlay`** | Modo *Easy Read* durante a viagem real: oculta tudo exceto a próxima direção e o botão massivo "Reportar obstáculo". | 🔜 |
+| **`ReportBarrierButton`** | Botão grande (≥ 44×44 px) que aciona o endpoint `POST /api/v1/report-barrier` com a localização atual via `navigator.geolocation`. | 🔜 |
+| **`TurnByTurnAnnouncer`** | Usa Web Speech API e Vibration API para anunciar manobras conforme o utilizador se aproxima de um nó. | 🔜 |
+
+## Notas de frontend (React.js)
+
+*   `MapView` é a raiz permanente (`/`). Não existem outras rotas — toda a navegação é vertical / por estados internos.
+*   A sidebar não é um modal; é uma coluna fixa em `md+` para manter o utilizador orientado. Em mobile, transforma-se num *drawer* lateral com o botão flutuante "Definições".
+*   O componente `InteractiveMap` usa `useRef` para manter `city`, `startCoords` e `endCoords` sincronizados, evitando *stale closures* no handler de *click* do Leaflet.
+*   Os controlos do mapa são acionados pelo clique direto sobre o componente; não há campos de texto para origem/destino no MVP (é uma decisão de UX para baixar a carga cognitiva — o ato de apontar é mais direto que digitar).

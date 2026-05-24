@@ -5,9 +5,11 @@ Este documento especifica os pesos numéricos exatos que o algoritmo de *routing
 A fórmula central do motor de pesos é:
 `Custo direcional (W) = Distância física (m) × Σ penalizações`
 
+A coluna **Estado** indica se cada penalização está ativa no MVP (✅) ou planeada para *crowdsourcing* futuro (🔜).
+
 ---
 
-## 1. Tabela de penalização por superfície
+## 1. Tabela de penalização por superfície ✅
 
 Baseada no atributo OSM `surface`. Valores > 1,0 representam esforço / desconforto adicional para cadeiras de rodas e andarilhos.
 
@@ -19,21 +21,23 @@ Baseada no atributo OSM `surface`. Valores > 1,0 representam esforço / desconfo
 | `compacted`, `fine_gravel` | Terra batida / gravilha fina | **5,0** | Muito esforço de tração. As rodas afundam ligeiramente. Evitar a quase todo o custo. |
 | `gravel`, `dirt`, `sand` | Gravilha solta, terra, areia | **20,0** | Praticamente intransitável para auxílios de mobilidade. Atua quase como uma barreira. |
 
+> **Implementação real (`router.py`):** o motor não compara contra esta tabela rua a rua; em vez disso usa `surface_preference` (uma lista enviada pelo cliente) e multiplica por **3,5** sempre que a superfície da aresta não está nessa lista. A tabela acima serve de guia para definir as listas dos perfis arquetípicos em `Perfis_Restricoes_Tecnicas.md`.
+
 ---
 
 ## 2. Penalizações por barreiras e variáveis estáticas
 
 Aplicadas transversalmente sempre que existem obstáculos explícitos na via.
 
-| Tipo de barreira (OSM / API) | Perfil afetado | Penalty point | Lógica |
-| :--- | :--- | :--- | :--- |
-| `highway=steps` (escadas) | Cadeira de rodas, carrinho de bebé | **10000,0 (infinito / corte)** | Barreira arquitetónica intransponível (*hard constraint*). O peso torna impossível ao algoritmo escolher este caminho, independentemente da distância alternativa. |
-| Passadeira sem sinal sonoro | Invisual / baixa visão | **10,0** | Risco severo. Empurra invisuais para interseções sinalizadas ou para passeios contínuos protegidos — aceitam-se rotas dez vezes mais longas em troca de segurança. |
-| `is_blocked=True` (*crowdsourcing*) | Todos | **99999,0 (corte temporal)** | Feedback submetido por utilizadores (obras, carro estacionado no passeio). Corta temporariamente a aresta. |
+| Tipo de barreira (OSM / API) | Perfil afetado | Penalty point | Lógica | Estado |
+| :--- | :--- | :--- | :--- | :---: |
+| `highway=steps` (escadas) | Cadeira de rodas, carrinho de bebé | **10000,0 (infinito / corte)** | Barreira arquitetónica intransponível quando `avoid_stairs=True`. O peso torna impossível ao algoritmo escolher este caminho. | ✅ |
+| Passadeira sem sinal sonoro | Invisual / baixa visão | **10,0** | Risco severo. Empurra invisuais para interseções sinalizadas. | 🔜 |
+| `is_blocked=True` (*crowdsourcing*) | Todos | **99999,0 (corte temporal)** | Feedback submetido por utilizadores (obras, carro estacionado no passeio). Corta temporariamente a aresta. | 🔜 (endpoint `report-barrier` planeado) |
 
 ---
 
-## 3. A matemática por trás do multiplicador 15,0 do declive
+## 3. A matemática por trás do multiplicador 15,0 do declive ✅
 
 A justificação teórica em engenharia civil e biomecânica para a constante `15.0` na função de penalização do declive baseia-se na *lei do trabalho excessivo* e no esgotamento da força humana de propulsão em planos inclinados.
 
@@ -48,18 +52,21 @@ Na locomoção humana assistida, a energia necessária para vencer a gravidade n
 
 **Ao definirmos Penalização = 15.0**, dizemos ao grafo: *"subir esta colina de 100 m custa-te o equivalente a uma viagem plana de 1,5 km".*
 
-Esse custo elevado obriga o Bellman-Ford a "entrar em pânico" e procurar dezenas de alternativas, preferindo enviar o utilizador num ziguezague de 1,2 km por avenidas planas em vez de o atirar contra uma subida direta para a UTAD. Este coeficiente foi testado como a *golden ratio* para micro-routing — alto o suficiente para desviar, baixo o suficiente para manter o grafo conectado.
+Esse custo elevado obriga o Bellman-Ford a "entrar em pânico" e procurar dezenas de alternativas, preferindo enviar o utilizador num ziguezague de 1,2 km por avenidas planas em vez de o atirar contra uma subida direta para a UTAD. Este coeficiente foi testado como a *golden ratio* para *micro-routing* — alto o suficiente para desviar, baixo o suficiente para manter o grafo conectado.
+
+### Tier suave (extensão MVP) ✅
+A versão entregue acrescenta um patamar intermédio: arestas com declive **entre 75 % e 100 % do limite do perfil** (ex.: 6 % a 8 % para um utilizador wheelchair) recebem penalização **×3**. Isto desencoraja "rasar o limite" sempre que existir alternativa, sem cortar a aresta por completo.
 
 ---
 
-## 4. Enriquecimento real de elevação (substitui tags OSM `incline` esparsas)
+## 4. Enriquecimento real de elevação ✅ (substitui tags OSM `incline` esparsas)
 
 A `incline` do OSM cobre menos de 5 % das ruas em Vila Real. Sem uma fonte real de declive, qualquer filtro degenera para 0 %.
 
-No arranque, o motor consulta o **OpenTopoData** (gratuito, sem chave de API, conjunto EU-DEM a 25 m de resolução) para cada nó do grafo e guarda a elevação. Cada aresta calcula o seu declive como `(elev_v − elev_u) / comprimento`.
+No arranque, o motor consulta o **OpenTopoData** (gratuito, sem chave de API, conjunto EU-DEM a 25 m de resolução) para cada nó do grafo e guarda a elevação **em disco** por cidade (`backend/data/elevation_cache/<slug>.json`). Cada aresta calcula o seu declive como `(elev_v − elev_u) / comprimento`.
 
 São aplicadas duas correções:
 1. **Limite a 25 %.** O DEM tem resolução de 25 m; diferenças em arestas muito curtas (< 20 m) tendem a ser ruidosas. O declive é limitado a [-0,25, 0,25].
 2. **Suavização em arestas curtas.** Quando uma aresta é mais curta do que a resolução do DEM, o declive é multiplicado por `comprimento / 20`, reduzindo o ruído de uma única amostra de elevação.
 
-O router prefere o declive derivado da elevação e só recorre à tag OSM `incline` quando o enriquecimento de elevação falha.
+Em caso de rate-limit (HTTP 429) da API, o motor faz *retry* exponencial (até 4 tentativas, *backoff* até 20 s) e persiste o que tiver até ao momento. O router prefere o declive derivado da elevação e só recorre à tag OSM `incline` quando o enriquecimento de elevação falha.
