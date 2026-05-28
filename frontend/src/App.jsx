@@ -485,22 +485,22 @@ export default function App() {
 
            {routeDistance > 0 && !error && (
               <div className="flex flex-col gap-3 animate-in slide-in-from-bottom-2">
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-around items-center">
-                   <div className="flex flex-col items-center">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Distância</span>
-                      <span className="text-lg font-black text-slate-700">{(routeDistance / 1000).toFixed(2)} <span className="text-sm font-semibold">km</span></span>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-stretch justify-around text-center">
+                   <div className="flex flex-1 flex-col items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider leading-tight">Distância</span>
+                      <span className="text-lg font-black text-slate-700 leading-none">{(routeDistance / 1000).toFixed(2)} <span className="text-sm font-semibold">km</span></span>
                    </div>
-                   <div className="w-px h-10 bg-slate-100"></div>
-                   <div className="flex flex-col items-center">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Tempo est.</span>
-                      <span className="text-lg font-black text-blue-600">
+                   <div className="w-px self-stretch bg-slate-100 mx-1"></div>
+                   <div className="flex flex-1 flex-col items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider leading-tight">Tempo est.</span>
+                      <span className="text-lg font-black text-blue-600 leading-none">
                         {Math.ceil(routeDistance / ((maxIncline < 10 && minWidth > 0.8) ? 58.3 : 41.6))} <span className="text-sm font-semibold">min</span>
                       </span>
                    </div>
-                   <div className="w-px h-10 bg-slate-100"></div>
-                   <div className="flex flex-col items-center">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Inclinação crítica</span>
-                      <span className={`text-lg font-black ${(maxRouteIncline * 100) > maxIncline ? 'text-red-600' : 'text-emerald-600'}`}>
+                   <div className="w-px self-stretch bg-slate-100 mx-1"></div>
+                   <div className="flex flex-1 flex-col items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider leading-tight">Inclinação crítica</span>
+                      <span className={`text-lg font-black leading-none ${(maxRouteIncline * 100) > maxIncline ? 'text-red-600' : 'text-emerald-600'}`}>
                         {(maxRouteIncline * 100).toFixed(1)} <span className="text-sm font-semibold">%</span>
                       </span>
                    </div>
